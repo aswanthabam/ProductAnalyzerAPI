@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 import decouple
@@ -8,7 +9,7 @@ from starlette.requests import Request
 
 from db.connection import Connection
 from db.models import Users, ProductVisits, Products, Countries, Regions, Cities
-from routers.api.product.response_models import ProductResponse, ListProductsResponse
+from routers.api.product.response_models import ProductResponse, ListProductsResponse, ProductInfoResponse, RequestData
 from utils.response import CustomResponse
 
 router = APIRouter(
@@ -60,7 +61,7 @@ async def visit(code: str, request: Request):
     ipapi = f"http://ip-api.com/json/{client_ip}?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,reverse,mobile,proxy,hosting,query"
     res = requests.get(ipapi)
     data = res.json()
-    if not data.get('error'):
+    if not data.get('error') and data.get('status') == "success":
         try:
             city_name = data.get('city')
             region_name = data.get('regionName')
@@ -104,6 +105,7 @@ async def visit(code: str, request: Request):
                     return CustomResponse.get_failure_response("City not found!!")
             city = Cities(**city)
         except Exception as e:
+            logging.getLogger(__name__).error(e, stack_info=True)
             city = None
             postal = None
             isp = None
@@ -127,7 +129,7 @@ async def visit(code: str, request: Request):
     )
     await connection.product_visits.insert_one(product_visit.model_dump())
     # Update the user visit count
-    await connection.users.update_one({'_id': user.id}, {'$set': {
+    await connection.users.update_one({'id': user.id}, {'$set': {
         'visit_count': user.visit_count + 1,
         'last_visit': datetime.utcnow()
     }})
@@ -156,3 +158,188 @@ async def list():
             ProductResponse(name=product.name, code=product.code, created_at=product.created_at,
                             total_visits=visit_count, monthly_visits=monthly_visit))
     return CustomResponse.get_success_response("", data=ListProductsResponse(products=ps))
+
+
+@router.get('/{code}/info', description="Get information about a project")
+async def product_info(code: str):
+    connection = Connection()
+    product = await connection.products.find_one({'code': code})
+    if not product:
+        return CustomResponse.get_failure_response("No product with the code found!")
+    product = Products(**product)
+    pipeline = [
+        {
+            '$match': {
+                'product': product.id
+            }
+        },
+        {
+            '$lookup': {
+                'from': 'cities',
+                'localField': 'city',
+                'foreignField': 'id',
+                'as': 'city_info'
+            }
+        },
+        {
+            '$unwind': '$city_info'
+        },
+        {
+            '$lookup': {
+                'from': 'regions',
+                'localField': 'city_info.region',
+                'foreignField': 'id',
+                'as': 'region_info'
+            }
+        },
+        {
+            '$unwind': '$region_info'
+        },
+        {
+            '$lookup': {
+                'from': 'countries',
+                'localField': 'region_info.country',
+                'foreignField': 'id',
+                'as': 'country_info'
+            }
+        },
+        {
+            '$unwind': '$country_info'
+        },
+        {
+            '$group': {
+                '_id': {
+                    'city': '$city_info.id',
+                    'city_name': '$city_info.name',
+                    'region': '$region_info.id',
+                    'region_name': '$region_info.name',
+                    'country': '$country_info.id',
+                    'country_name': '$country_info.name'
+                },
+                'count': {'$sum': 1}
+            }
+        },
+        {
+            '$sort': {'count': -1}
+        },
+        {
+            '$project': {
+                '_id': 0,
+                'city_id': '$_id.city',
+                'city_name': '$_id.city_name',
+                'region_id': '$_id.region',
+                'region_name': '$_id.region_name',
+                'country_id': '$_id.country',
+                'country_name': '$_id.country_name',
+                'count': 1
+            }
+        }
+    ]
+
+    results = connection.product_visits.aggregate(pipeline)
+    results = await results.to_list(length=None)
+
+    cities = {}
+    regions = {}
+    countries = {}
+    for row in results:
+        city_id = row.get('city_id')
+        region_id = row.get('region_id')
+        country_id = row.get("country_id")
+        if not city_id or not region_id or not country_id:
+            if cities.get("unknown"):
+                cities['unknown']['count'] += row.get('count')
+            else:
+                cities['unknown'] = {
+                    'name': 'Unknown',
+                    'count': row.get('count')
+                }
+            continue
+        cities[city_id] = {
+            "name": row.get("city_name"),
+            "count": row.get("count")
+        }
+        if not regions.get(region_id):
+            regions[region_id] = {
+                "name": row.get("region_name"),
+                "count": row.get("count")
+            }
+        else:
+            regions[region_id]['count'] += row.get('count')
+        if not countries.get(country_id):
+            countries[country_id] = {
+                "name": row.get("country_name"),
+                "count": row.get("count")
+            }
+        else:
+            countries[country_id]['count'] += row.get('count')
+    cities = sorted(cities.values(), key=lambda x: x['count'], reverse=True)[:10]
+    regions = sorted(regions.values(), key=lambda x: x['count'], reverse=True)[:10]
+    countries = sorted(countries.values(), key=lambda x: x['count'], reverse=True)[:10]
+    pipeline = [
+        {'$match': {'product': product.id}},
+        {'$sort': {'time': -1}},
+        {'$limit': 5},
+        {'$lookup': {
+            'from': 'cities',
+            'localField': 'city',
+            'foreignField': 'id',
+            'as': 'city_info'
+        }},
+        {'$unwind': '$city_info'},
+        {'$lookup': {
+            'from': 'regions',
+            'localField': 'city_info.region',
+            'foreignField': 'id',
+            'as': 'region_info'
+        }},
+        {'$unwind': '$region_info'},
+        {'$lookup': {
+            'from': 'countries',
+            'localField': 'region_info.country',
+            'foreignField': 'id',
+            'as': 'country_info'
+        }},
+        {'$unwind': '$country_info'},
+        {'$lookup': {
+            'from': 'users',
+            'localField': 'user',
+            'foreignField': 'id',
+            'as': 'user_info'
+        }},
+        {'$unwind': '$user_info'},
+        {'$project': {
+
+            'time': 1,
+            'isp': 1,
+            'postal': 1,
+            'ip': '$user_info.ip',
+            'timezone': '$city_info.timezone',
+            'city': '$city_info.name',
+            'region': '$region_info.name',
+            'country': '$country_info.name',
+            'continent': '$country_info.continent'
+        }}
+    ]
+    results = await connection.product_visits.aggregate(pipeline).to_list(None)
+
+    latest = [
+        RequestData(
+            ip=x.get('ip'),
+            time=x.get('time'),
+            isp=x.get('isp'),
+            postal=x.get('postal'),
+            timezone=x.get('timezone'),
+            city=x.get('city'),
+            region=x.get('region'),
+            country=x.get('country'),
+            continent=x.get('continent')
+        )
+        for x in results
+    ]
+    return CustomResponse.get_success_response(f"{code} info",
+                                               data=ProductInfoResponse(
+                                                   name=product.name,
+                                                   latest_visits=latest,
+                                                   cities=cities, countries=countries,
+                                                   regions=regions))

@@ -3,3 +3,4 @@ venv
 .idea
 .vscode
 build
+__pycache__

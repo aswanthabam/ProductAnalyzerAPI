@@ -10,21 +10,21 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 
 
 class Products(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(...)
     code: str = Field(...)
     created_at: datetime = Field(..., default_factory=datetime.utcnow)
 
 
 class Users(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: str = Field(default_factory=lambda: str(uuid4()))
     ip: str = Field(...)
     visit_count: int = Field(default=1)
     last_visit: datetime = Field(..., default_factory=datetime.utcnow)
 
 
 class ProductVisits(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: str = Field(default_factory=lambda: str(uuid4()))
     product: str = Field(...)
     user: str = Field(...)
     city: str | None = Field(None)
@@ -36,21 +36,21 @@ class ProductVisits(BaseModel):
 
 
 class Cities(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(...)
     region: str = Field(...)
     timezone: str = Field(...)
 
 
 class Regions(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(...)
     code: str = Field(...)
     country: str = Field(...)
 
 
 class Countries(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(...)
     code: str = Field(...)
     continent_code: str = Field(...)

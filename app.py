@@ -2,7 +2,8 @@ import asyncio
 from fastapi import Request
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse, HTMLResponse
+from starlette.responses import JSONResponse, HTMLResponse, RedirectResponse
+from starlette.staticfiles import StaticFiles
 from starlette.status import HTTP_401_UNAUTHORIZED
 
 from utils.response import CustomResponse
@@ -11,9 +12,6 @@ from routers.api.product import product
 
 app = FastAPI()
 
-app.include_router(product.router)
-asyncio.run(Connection().initialize_database())
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,6 +19,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(product.router)
+
+app.mount("/dashboard", StaticFiles(directory="frontend/dashboard/build", html=True), name="home-dashboard")
+
+asyncio.run(Connection().initialize_database())
 
 
 async def custom_auth_exception_handler(request: Request, exc: Exception):
@@ -32,4 +36,4 @@ app.add_exception_handler(HTTP_401_UNAUTHORIZED, custom_auth_exception_handler)
 
 @app.get("/")
 def root():
-    return HTMLResponse(content="<html><h1>Haa shit! My Code is working.</h1></html>")
+    return RedirectResponse(url="/dashboard")
