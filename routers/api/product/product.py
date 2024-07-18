@@ -8,10 +8,11 @@ from starlette.requests import Request
 
 from db.connection import Connection
 from db.models import Users, ProductVisits, Products, Countries, Regions, Cities
+from routers.api.product.response_models import ProductResponse, ListProductsResponse
 from utils.response import CustomResponse
 
 router = APIRouter(
-    prefix="/product",
+    prefix="/api/product",
     tags=["product"],
     responses={404: {"description": "Not found"}},
 )
@@ -19,7 +20,7 @@ GENERAL_PRODUCT_LIMIT_PER_HOUR = 60
 PASSWORD = decouple.config('PASSWORD')
 
 
-@router.post('/create-product/', description="Create a product")
+@router.post('/create/', description="Create a product")
 async def create_product(code: str = Form(...), name: str = Form(...), password: str = Form(...)):
     if password != PASSWORD:
         return CustomResponse.get_failure_response("Unauthorized!")
@@ -31,7 +32,7 @@ async def create_product(code: str = Form(...), name: str = Form(...), password:
     return CustomResponse.get_success_response("Product Created")
 
 
-@router.get('/visit/{code}', description="Visit a product")
+@router.get('/{code}/visit/', description="Visit a product")
 async def visit(code: str, request: Request):
     connection = Connection()
     # finds the ip address of the user
@@ -97,7 +98,8 @@ async def visit(code: str, request: Request):
             if not city:
                 city = Cities(region=region.id, name=city_name, timezone=timezone)
                 await connection.cities.insert_one(city.model_dump())
-                city = await connection.cities.find_one({'region': str(region.id), 'name': city_name, 'timezone': timezone})
+                city = await connection.cities.find_one(
+                    {'region': str(region.id), 'name': city_name, 'timezone': timezone})
                 if not city:
                     return CustomResponse.get_failure_response("City not found!!")
             city = Cities(**city)
@@ -130,3 +132,27 @@ async def visit(code: str, request: Request):
         'last_visit': datetime.utcnow()
     }})
     return CustomResponse.get_success_response("OK")
+
+
+@router.get('/list', description="List available products")
+async def list():
+    connection = Connection()
+    products = await connection.products.find().to_list(length=None)
+    ps = []
+    now = datetime.utcnow()
+    start_of_month = datetime(now.year, now.month, 1)
+    if now.month == 12:
+        start_of_next_month = datetime(now.year + 1, 1, 1)
+    else:
+        start_of_next_month = datetime(now.year, now.month + 1, 1)
+    for product in products:
+        product = Products(**product)
+        visit_count = await connection.product_visits.count_documents({'product': product.id})
+        monthly_visit = await connection.product_visits.count_documents({
+            'time': {'$gte': start_of_month, '$lt': start_of_next_month},
+            'product': product.id
+        })
+        ps.append(
+            ProductResponse(name=product.name, code=product.code, created_at=product.created_at,
+                            total_visits=visit_count, monthly_visits=monthly_visit))
+    return CustomResponse.get_success_response("", data=ListProductsResponse(products=ps))

@@ -7,7 +7,8 @@ from starlette.status import HTTP_401_UNAUTHORIZED
 
 from utils.response import CustomResponse
 from db.connection import Connection
-from routers.product import product
+from routers.api.product import product
+
 app = FastAPI()
 
 app.include_router(product.router)
