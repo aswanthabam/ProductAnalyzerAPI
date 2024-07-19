@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import styles from "./page.module.css";
 import { ProductDetailResponse } from "@/utils/types";
 import { useSearchParams } from "next/navigation";
-
+const apiUrl: string = process.env.NEXT_PUBLIC_API_URL || "";
 export default function Product(p: any) {
   const params = useSearchParams();
   const product = params!.get("product");
@@ -11,7 +11,7 @@ export default function Product(p: any) {
     null
   );
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/product/${product}/info`)
+    fetch(`${apiUrl}/api/product/${product}/info`)
       .then((res) => res.json())
       .then((data) => {
         if (data.status == "success") {
