@@ -28,7 +28,6 @@ jobs:
         with:
           script: |
             const comment = process.env.output;
-            const { context } = require('@actions/github');
             const issue_number = context.issue.number;
             await github.rest.issues.createComment({
               ...context.repo,
