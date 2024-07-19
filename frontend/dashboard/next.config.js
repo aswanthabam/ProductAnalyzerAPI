@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  distDir: "build",
+  distDir: process.env.NEXT_PUBLIC_BUILD_PATH || "build",
   reactStrictMode: false,
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "/dashboard",
   output: "export",
@@ -9,4 +9,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

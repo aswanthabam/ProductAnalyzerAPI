@@ -4,15 +4,41 @@
     {
       "src": "wsgi.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "/frontend/build/dashboard/*.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "/frontend/build/dashboard/**/*.**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/dashboard/(.*)\\.(.*)",
+      "dest": "/frontend/build/dashboard/$1.$2"
+    },
+    {
+      "src": "/dashboard|/dashboard/",
+      "dest": "/frontend/build/dashboard/index.html"
+    },
+    {
+      "src": "/dashboard/(.*)/",
+      "dest": "/frontend/build/dashboard/$1.html"
+    },
+    {
+      "src": "/dashboard/(.*)",
+      "dest": "/frontend/build/dashboard/$1.html"
+    },
+    {
+      "src": "/dashboard/(.*)",
+      "dest": "/frontend/build/dashboard/404.html"
+    },
+    {
+      "src": "(.*)",
       "dest": "wsgi.py"
     }
   ],
-  "regions": [
-    "bom1"
-  ]
+  "regions": ["bom1"]
 }
