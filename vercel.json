@@ -10,11 +10,7 @@
       "use": "@vercel/static"
     },
     {
-      "src": "/frontend/build/dashboard/**/*.css",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "/frontend/output/dashboard/**/*.**",
+      "src": "/frontend/build/dashboard/**/*.**",
       "use": "@vercel/static"
     }
   ],
@@ -24,16 +20,16 @@
       "dest": "/frontend/build/dashboard/$1.$2"
     },
     {
+      "src": "/dashboard|/dashboard/",
+      "dest": "/frontend/build/dashboard/index.html"
+    },
+    {
       "src": "/dashboard/(.*)/",
       "dest": "/frontend/build/dashboard/$1.html"
     },
     {
       "src": "/dashboard/(.*)",
       "dest": "/frontend/build/dashboard/$1.html"
-    },
-    {
-      "src": "/dashboard|/dashboard/",
-      "dest": "/frontend/build/dashboard/index.html"
     },
     {
       "src": "/dashboard/(.*)",
