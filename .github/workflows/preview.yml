@@ -2,6 +2,7 @@ name: Vercel Preview Deployment
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  NEXT_PUBLIC_BASE_PATH: ../build/dashboard
 on:
   push:
     branches-ignore:
@@ -17,8 +18,6 @@ jobs:
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_KEY }}
       - name: Build Dashboard
         run: cd frontend/dashboard && npm install && npm run build
-        with:
-          NEXT_PUBLIC_BASE_PATH: ../build/dashboard
       - name: Build Project Artifacts
         run: vercel build --token=${{ secrets.VERCEL_KEY }}
       - name: Deploy Project Artifacts to Vercel
