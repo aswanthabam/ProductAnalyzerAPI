@@ -20,4 +20,4 @@ jobs:
       - name: Build Dashboard
         run: cd frontend/dashboard && npm install && npm run build
       - name: Deploy to Vercel
-        run: vercel deploy --prod --token=${{ secrets.VERCEL_KEY }})
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_KEY }}
