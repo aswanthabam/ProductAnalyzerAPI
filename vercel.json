@@ -44,6 +44,5 @@
       "dest": "wsgi.py"
     }
   ],
-  "regions": ["bom1"],
-  "4o4": "/frontend/build/dashboard/404.html"
+  "regions": ["bom1"]
 }

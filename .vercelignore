@@ -5,10 +5,10 @@ venv
 .vercel
 node_modules
 __pycache__
-build
-/*
+*
 */**
-!frontend/build/
+!.vercelignore
+!frontend
 !routers
 !utils
 !db
@@ -17,3 +17,9 @@ build
 !wsgi.py
 !requirements.txt
 !Pipfile
+frontend/**
+!frontend/build
+!frontend/build/**
+!routers/**
+!utils/**
+!db/**
