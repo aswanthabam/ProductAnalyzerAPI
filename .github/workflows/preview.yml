@@ -4,7 +4,7 @@ env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
   NEXT_PUBLIC_BUILD_PATH: ../build/dashboard
-on: 
+on:
   pull_request:
     branches:
       - main
@@ -24,14 +24,14 @@ jobs:
           output=$(vercel deploy --no-wait --token=${{ secrets.VERCEL_KEY }})
           echo "output=$output" >> $GITHUB_ENV
       - name: Post comment to PR
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const comment = process.env.output;
-          const { context } = require('@actions/github');
-          const issue_number = context.issue.number;
-          await github.rest.issues.createComment({
-            ...context.repo,
-            issue_number,
-            body: `Deploying to vercel preview :airplane:\n\n${comment}`
-          });
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const comment = process.env.output;
+            const { context } = require('@actions/github');
+            const issue_number = context.issue.number;
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number,
+              body: `Deploying to vercel preview :airplane:\n\n${comment}`
+            });
