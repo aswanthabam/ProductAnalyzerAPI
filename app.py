@@ -22,7 +22,7 @@ app.add_middleware(
 
 app.include_router(product.router)
 
-app.mount("/dashboard", StaticFiles(directory="frontend/dashboard/build", html=True), name="home-dashboard")
+# app.mount("/dashboard", StaticFiles(directory="frontend/dashboard/build", html=True), name="home-dashboard")
 
 asyncio.run(Connection().initialize_database())
 
