@@ -1,8 +1,0 @@
-{
-  "devDependencies": {
-    "@types/express": "^4.17.21"
-  },
-  "dependencies": {
-    "next": "^14.2.5"
-  }
-}
