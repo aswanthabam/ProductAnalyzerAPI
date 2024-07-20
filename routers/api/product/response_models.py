@@ -18,6 +18,7 @@ class ListProductsResponse(BaseModel):
 class RequestData(BaseModel):
     ip: str | None
     path: str | None
+    method: str | None
     time: datetime | None
     isp: str | None
     postal: str | None

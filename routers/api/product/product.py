@@ -32,6 +32,8 @@ class IPAPI:
         self.zip = data.get('zip')
         self.lat = data.get('lat')
         self.lon = data.get('lon')
+        self.lat = str(self.lat) if self.lat else None
+        self.lon = str(self.lon) if self.lon else None
         self.timezone = data.get('timezone')
         self.isp = data.get('isp')
         self.org = data.get('org')
@@ -42,7 +44,6 @@ class IPAPI:
         self.hosting = data.get('hosting', False)
 
     def to_model_dict(self):
-        print(self.country, type(self.country))
         return {
             'country': self.country if self.country else "Unknown",
             'region': self.regionName if self.regionName else "Unknown",
@@ -129,7 +130,6 @@ async def visit(code: str, request: Request, path: str = "/", method: str = "GET
         data = {}
         if ip_info := IPAPI.from_ip_address(client_ip):
             data = ip_info.to_model_dict()
-            print(data)
         data.update({
             'ip': client_ip,
             'product': product.id,
@@ -272,6 +272,7 @@ async def product_requests(code: str, page: int = 1, page_size: int = 10):
             ip=x.get('ip'),
             time=x.get('formated_date'),
             path=x.get('visits').get('path'),
+            method=x.get('visits').get('method'),
             timezone=x.get('timezone'),
             isp=f"{x.get('isp')} | {x.get('org')} | {x.get('as_')}",
             postal=x.get('postal'),
