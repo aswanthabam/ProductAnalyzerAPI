@@ -1,56 +1,47 @@
-from datetime import datetime
-from typing import Optional, Annotated
+from datetime import datetime, time, date, UTC
+from typing import Annotated
 from uuid import uuid4
-
 from pydantic import BaseModel, BeforeValidator, Field
 
-DEFAULT_DAILY_LIMIT = (100 * 1024 * 1024)  # 100 MB
-
 PyObjectId = Annotated[str, BeforeValidator(str)]
+
+
+class VisitData(BaseModel):
+    path: str
+    method: str
+    time: str
+
+
+class Visit(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    ip: str = Field(...)
+    product: str = Field(...)
+    city: str | None = Field(None)
+    region: str | None = Field(None)
+    country: str | None = Field(None)
+    zipcode: str | None = Field(None)
+    timezone: str | None = Field(None)
+    lat: str | None = Field(None)
+    lon: str | None = Field(None)
+    isp: str | None = Field(None)
+    org: str | None = Field(None)
+    as_: str | None = Field(None)
+    hosting: bool = Field(False)
+    proxy: bool = Field(False)
+    mobile: bool = Field(False)
+    user_agent: str | None = Field(None)
+    visits: list[VisitData] = Field([])
+    date_: datetime = Field(..., default_factory=lambda: datetime.now(UTC))
+
+
+class AdminUsers(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    email: str = Field(...)
+    password: str = Field(...)
 
 
 class Products(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(...)
     code: str = Field(...)
-    created_at: datetime = Field(..., default_factory=datetime.utcnow)
-
-
-class Users(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    ip: str = Field(...)
-    visit_count: int = Field(default=1)
-    last_visit: datetime = Field(..., default_factory=datetime.utcnow)
-
-
-class ProductVisits(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    product: str = Field(...)
-    user: str = Field(...)
-    city: str | None = Field(None)
-    latitude: str | None = Field(None)
-    longitude: str | None = Field(None)
-    postal: str | None = Field(None)
-    isp: str | None = Field(None)
-    time: datetime = Field(..., default_factory=datetime.utcnow)
-
-
-class Cities(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = Field(...)
-    region: str = Field(...)
-    timezone: str = Field(...)
-
-
-class Regions(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = Field(...)
-    code: str = Field(...)
-    country: str = Field(...)
-
-
-class Countries(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = Field(...)
-    code: str = Field(...)
-    continent_code: str = Field(...)
+    created_at: datetime = Field(..., default_factory=lambda: datetime.now(UTC))

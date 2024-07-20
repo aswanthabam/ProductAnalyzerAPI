@@ -1,5 +1,5 @@
-import logging
-from datetime import datetime
+import math
+from datetime import datetime, UTC, timedelta
 
 import decouple
 import pymongo.errors
@@ -8,8 +8,9 @@ from fastapi import APIRouter, Form
 from starlette.requests import Request
 
 from db.connection import Connection
-from db.models import Users, ProductVisits, Products, Countries, Regions, Cities
-from routers.api.product.response_models import ProductResponse, ListProductsResponse, ProductInfoResponse, RequestData
+from db.models import Products, VisitData, Visit
+from routers.api.product.response_models import ProductResponse, ListProductsResponse, RequestData, \
+    ProductRequestsResponse, LocationData, ProductLocationsResponse
 from utils.response import CustomResponse
 
 router = APIRouter(
@@ -19,6 +20,53 @@ router = APIRouter(
 )
 GENERAL_PRODUCT_LIMIT_PER_HOUR = 60
 PASSWORD = decouple.config('PASSWORD')
+
+
+class IPAPI:
+    def __init__(self, data: dict):
+        self.status = data.get('status')
+        self.continent = data.get('continent')
+        self.country = data.get('country')
+        self.regionName = data.get('regionName')
+        self.city = data.get('city')
+        self.zip = data.get('zip')
+        self.lat = data.get('lat')
+        self.lon = data.get('lon')
+        self.timezone = data.get('timezone')
+        self.isp = data.get('isp')
+        self.org = data.get('org')
+        self.as_ = data.get('as')
+        self.asname = data.get('asname')
+        self.mobile = data.get('mobile', False)
+        self.proxy = data.get('proxy', False)
+        self.hosting = data.get('hosting', False)
+
+    def to_model_dict(self):
+        print(self.country, type(self.country))
+        return {
+            'country': self.country if self.country else "Unknown",
+            'region': self.regionName if self.regionName else "Unknown",
+            'city': self.city if self.city else "Unknown",
+            'zipcode': self.zip,
+            'lat': self.lat,
+            'lon': self.lon,
+            'timezone': self.timezone,
+            'isp': self.isp if self.isp else "Unknown",
+            'org': self.org if self.org else "Unknown",
+            'as_': self.as_ if self.as_ else "Unknown",
+            'mobile': self.mobile,
+            'proxy': self.proxy,
+            'hosting': self.hosting
+        }
+
+    @staticmethod
+    def from_ip_address(ip: str):
+        url = f"http://ip-api.com/json/{ip}?fields=status,continent,country,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting"
+        res = requests.get(url)
+        data = res.json()
+        if not data.get('error') and data.get('status') == "success":
+            return IPAPI(data)
+        return IPAPI({})
 
 
 @router.post('/create/', description="Create a product")
@@ -34,9 +82,18 @@ async def create_product(code: str = Form(...), name: str = Form(...), password:
 
 
 @router.get('/{code}/visit/', description="Visit a product")
-async def visit(code: str, request: Request):
+async def visit(code: str, request: Request, path: str = "/", method: str = "GET"):
     connection = Connection()
+
+    # check if the product exists
+
+    product = await connection.products.find_one({'code': code})
+    if not product:
+        return CustomResponse.get_failure_response("Product not found.")
+    product = Products(**product)
+
     # finds the ip address of the user
+
     x_forwarded_for = request.headers.get("x-forwarded-for")
     if x_forwarded_for:
         client_ip = x_forwarded_for.split(",")[0]
@@ -44,104 +101,53 @@ async def visit(code: str, request: Request):
         client_ip = request.client.host
     if not client_ip:
         return CustomResponse.get_failure_response("Error, trust me.. its not from our side.")
-    # find if the ip stored already, if not store it
-    user = await connection.users.find_one({'ip': client_ip})
-    if not user:
-        await connection.users.insert_one(Users(ip=client_ip).model_dump())
-        user = await connection.users.find_one({'ip': client_ip})
-    if not user:
-        return CustomResponse.get_failure_response("Error, its from our side :)")
-    user = Users(**user)
-    # find the product
-    product = await connection.products.find_one({'code': code})
-    if not product:
-        return CustomResponse.get_failure_response("Product not found.")
-    product = Products(**product)
-    # find the details about the ip address
-    ipapi = f"http://ip-api.com/json/{client_ip}?fields=status,message,continent,continentCode,country,countryCode,region,regionName,city,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,reverse,mobile,proxy,hosting,query"
-    res = requests.get(ipapi)
-    data = res.json()
-    if not data.get('error') and data.get('status') == "success":
-        try:
-            city_name = data.get('city')
-            region_name = data.get('regionName')
-            region_code = data.get('region')
-            country_name = data.get('country')
-            country_code = data.get('countryCode')
-            continent = data.get('continent')
-            postal = data.get('zip')
-            timezone = data.get('timezone')
-            isp = data.get('isp')
-            latitude = data.get('lat')
-            longitude = data.get('lon')
-            # Find / Create the country, region and city
-            country = await connection.countries.find_one(
-                {'code': country_code, 'continent_code': continent, 'name': country_name})
-            if not country:
-                country = Countries(name=country_name, code=country_code, continent_code=continent)
-                await connection.countries.insert_one(country.model_dump())
-                country = await connection.countries.find_one(
-                    {'code': country_code, 'continent_code': continent, 'name': country_name})
-                if not country:
-                    return CustomResponse.get_failure_response("Country not found!!")
-            country = Countries(**country)
-            region = await connection.regions.find_one(
-                {'code': region_code, 'country': country.id, 'name': region_name})
-            if not region:
-                region = Regions(name=region_name, code=region_code, country=country.id)
-                await connection.regions.insert_one(region.model_dump())
-                region = await connection.regions.find_one(
-                    {'code': region_code, 'country': country.id, 'name': region_name})
-                if not region:
-                    return CustomResponse.get_failure_response("Region not found!!")
-            region = Regions(**region)
-            city = await connection.cities.find_one({'region': str(region.id), 'name': city_name, 'timezone': timezone})
-            if not city:
-                city = Cities(region=region.id, name=city_name, timezone=timezone)
-                await connection.cities.insert_one(city.model_dump())
-                city = await connection.cities.find_one(
-                    {'region': str(region.id), 'name': city_name, 'timezone': timezone})
-                if not city:
-                    return CustomResponse.get_failure_response("City not found!!")
-            city = Cities(**city)
-        except Exception as e:
-            logging.getLogger(__name__).error(e, stack_info=True)
-            city = None
-            postal = None
-            isp = None
-            latitude = None
-            longitude = None
+
+    # Finds the user agent of the user
+
+    user_agent = request.headers.get("user-agent", "Unknown")
+
+    # check if the user has visited the product the same day, if visited update the visit time
+    # else creates a new visit
+
+    time = datetime.now(UTC)
+    date = time.date()
+
+    start_of_today = datetime.combine(datetime.today(), datetime.min.time())
+    start_of_tomorrow = start_of_today + timedelta(days=1)
+    prev_visits = await connection.visits.find_one({'ip': client_ip, 'date_': {
+        '$gte': start_of_today,
+        '$lt': start_of_tomorrow
+    }, 'product': product.id})  # Finds visit of the user in the same day
+    if prev_visits:
+        cur_visit = VisitData(
+            path=path,
+            method=method,
+            time=time.time().strftime("%H:%M:%S")
+        )
+        await connection.visits.update_one({"id": prev_visits.get('id')}, {'$push': {'visits': cur_visit.model_dump()}})
     else:
-        city = None
-        postal = None
-        isp = None
-        latitude = None
-        longitude = None
-    # Add product visit
-    product_visit = ProductVisits(
-        product=product.id,
-        user=user.id,
-        city=city.id if city else None,
-        latitude=str(latitude) if latitude else None,
-        longitude=str(longitude) if longitude else None,
-        postal=str(postal) if postal else None,
-        org=isp,
-    )
-    await connection.product_visits.insert_one(product_visit.model_dump())
-    # Update the user visit count
-    await connection.users.update_one({'id': user.id}, {'$set': {
-        'visit_count': user.visit_count + 1,
-        'last_visit': datetime.utcnow()
-    }})
+        data = {}
+        if ip_info := IPAPI.from_ip_address(client_ip):
+            data = ip_info.to_model_dict()
+            print(data)
+        data.update({
+            'ip': client_ip,
+            'product': product.id,
+            'date_': time,
+            'user_agent': user_agent,
+            'visits': [VisitData(path=path, method=method, time=time.time().strftime("%H:%M:%S")).model_dump()]
+        })
+        data = Visit(**data)
+        await connection.visits.insert_one(data.model_dump())
     return CustomResponse.get_success_response("OK")
 
 
 @router.get('/list', description="List available products")
-async def list():
+async def list_products():
     connection = Connection()
     products = await connection.products.find().to_list(length=None)
     ps = []
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     start_of_month = datetime(now.year, now.month, 1)
     if now.month == 12:
         start_of_next_month = datetime(now.year + 1, 1, 1)
@@ -149,19 +155,143 @@ async def list():
         start_of_next_month = datetime(now.year, now.month + 1, 1)
     for product in products:
         product = Products(**product)
-        visit_count = await connection.product_visits.count_documents({'product': product.id})
-        monthly_visit = await connection.product_visits.count_documents({
-            'time': {'$gte': start_of_month, '$lt': start_of_next_month},
-            'product': product.id
-        })
+        pipeline = [
+            {
+                '$match': {
+                    'product': product.id
+                }
+            },
+            {
+                '$project': {
+                    'v_len': {
+                        '$size': '$visits'
+                    }
+                }
+            },
+            {
+                '$group': {
+                    '_id': None,
+                    'total_count': {
+                        '$sum': '$v_len'
+                    }
+                }
+            }
+        ]
+        visit_count = (await connection.visits.aggregate(pipeline).to_list(None))[0].get('total_count', 0)
+        pipeline[0]['$match']['date_'] = {'$gte': start_of_month, '$lt': start_of_next_month}
+        monthly_visit = (await connection.visits.aggregate(pipeline).to_list(None))[0].get('total_count', 0)
         ps.append(
             ProductResponse(name=product.name, code=product.code, created_at=product.created_at,
                             total_visits=visit_count, monthly_visits=monthly_visit))
     return CustomResponse.get_success_response("", data=ListProductsResponse(products=ps))
 
 
-@router.get('/{code}/info', description="Get information about a project")
-async def product_info(code: str):
+@router.get('/{code}/requests', description="Get information about a project")
+async def product_requests(code: str, page: int = 1, page_size: int = 10):
+    connection = Connection()
+    product = await connection.products.find_one({'code': code})
+    if not product:
+        return CustomResponse.get_failure_response("No product with the code found!")
+    product = Products(**product)
+    skip_count = (page - 1) * page_size
+    pipeline = [
+        {
+            '$match': {
+                'product': product.id
+            }
+        },
+        {
+            '$sort': {
+                'date_': -1
+            }
+        },
+        {
+            '$unwind': '$visits'
+        },
+        {
+            '$addFields': {
+                'formated_date': {
+                    '$dateFromParts': {
+                        'year': {'$year': '$date_'},
+                        'month': {'$month': '$date_'},
+                        'day': {'$dayOfMonth': '$date_'},
+                        'hour': {'$toInt': {'$arrayElemAt': [{'$split': ['$visits.time', ':']}, 0]}},
+                        'minute': {'$toInt': {'$arrayElemAt': [{'$split': ['$visits.time', ':']}, 1]}},
+                        'second': {'$toInt': {'$arrayElemAt': [{'$split': ['$visits.time', ':']}, 2]}}
+                    }
+                }
+            }
+        },
+        {
+            '$sort': {
+                'formated_date': -1
+            }
+        },
+        {'$facet': {
+            'totalCount': [
+                {
+                    '$count': 'count'
+                }
+            ],
+            'paginatedResults': [
+                {
+                    '$skip': skip_count
+                },
+                {
+                    '$limit': page_size
+                },
+                {
+                    '$project': {
+                        'visits': 1,
+                        'city': 1,
+                        'region': 1,
+                        'country': 1,
+                        'timezone': 1,
+                        'postal': 1,
+                        'ip': 1,
+                        'isp': 1,
+                        'org': 1,
+                        'as_': 1,
+                        'hosting': 1,
+                        'proxy': 1,
+                        'mobile': 1,
+                        'user_agent': 1,
+                        'formated_date': 1
+                    }
+                }
+            ]
+        }, }
+    ]
+    results = await connection.visits.aggregate(pipeline).to_list(None)
+    total_documents = results[0]['totalCount'][0]['count'] if results[0]['totalCount'] else 0
+    total_pages = math.ceil(total_documents / page_size)
+
+    paginated_results = results[0]['paginatedResults']
+    latest = [
+        RequestData(
+            ip=x.get('ip'),
+            time=x.get('formated_date'),
+            path=x.get('visits').get('path'),
+            timezone=x.get('timezone'),
+            isp=f"{x.get('isp')} | {x.get('org')} | {x.get('as_')}",
+            postal=x.get('postal'),
+            location=f"{x.get('city')}, {x.get('region')}, {x.get('country')}",
+            user_agent=x.get('user_agent')
+        )
+        for x in paginated_results
+    ]
+    return CustomResponse.get_success_response(f"{code} requests",
+                                               data=ProductRequestsResponse(
+                                                   requests=latest,
+                                                   page=page,
+                                                   total_pages=total_pages,
+                                                   total=total_documents,
+                                                   page_size=page_size
+                                               ))
+
+
+@router.get('/{code}/locations', description="Get information about a project")
+async def product_locations(code: str):
     connection = Connection()
     product = await connection.products.find_one({'code': code})
     if not product:
@@ -174,172 +304,120 @@ async def product_info(code: str):
             }
         },
         {
-            '$lookup': {
-                'from': 'cities',
-                'localField': 'city',
-                'foreignField': 'id',
-                'as': 'city_info'
+            '$unwind': '$visits'
+        },
+        {
+            '$facet': {
+                'top_cities': [
+                    {
+                        '$group': {
+                            '_id': '$city',
+                            'total_ci_sum': {
+                                '$sum': 1
+                            },
+                            'region': {
+                                '$first': '$region'
+                            },
+                            'country': {
+                                '$first': '$country'
+                            }
+                        }
+                    },
+                    {
+                        '$sort': {
+                            'total_ci_sum': -1
+                        }
+                    },
+                    {
+                        '$limit': 10
+                    },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'city': '$_id',
+                            'total_ci_sum': 1,
+                            'region': 1,
+                            'country': 1
+                        }
+                    },
+                ],
+                'top_regions': [
+                    {
+                        '$group': {
+                            '_id': '$region',
+                            'total_r_sum': {
+                                '$sum': 1
+                            },
+                            'country': {
+                                '$first': '$country'
+                            }
+                        }
+                    },
+                    {
+                        '$sort': {
+                            'total_r_sum': -1
+                        }
+                    },
+                    {
+                        '$limit': 10
+                    },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'region': '$_id',
+                            'total_r_sum': 1,
+                            'country': 1
+                        }
+                    },
+                ],
+                'top_countries': [
+                    {
+                        '$group': {
+                            '_id': '$country',
+                            'total_co_sum': {
+                                '$sum': 1
+                            }
+                        }
+                    },
+                    {
+                        '$sort': {
+                            'total_co_sum': -1
+                        }
+                    },
+                    {
+                        '$limit': 10
+                    },
+                    {
+                        '$project': {
+                            '_id': 0,
+                            'country': '$_id',
+                            'total_co_sum': 1
+                        }
+                    },
+                ]
             }
         },
-        {
-            '$unwind': '$city_info'
-        },
-        {
-            '$lookup': {
-                'from': 'regions',
-                'localField': 'city_info.region',
-                'foreignField': 'id',
-                'as': 'region_info'
-            }
-        },
-        {
-            '$unwind': '$region_info'
-        },
-        {
-            '$lookup': {
-                'from': 'countries',
-                'localField': 'region_info.country',
-                'foreignField': 'id',
-                'as': 'country_info'
-            }
-        },
-        {
-            '$unwind': '$country_info'
-        },
-        {
-            '$group': {
-                '_id': {
-                    'city': '$city_info.id',
-                    'city_name': '$city_info.name',
-                    'region': '$region_info.id',
-                    'region_name': '$region_info.name',
-                    'country': '$country_info.id',
-                    'country_name': '$country_info.name'
-                },
-                'count': {'$sum': 1}
-            }
-        },
-        {
-            '$sort': {'count': -1}
-        },
-        {
-            '$project': {
-                '_id': 0,
-                'city_id': '$_id.city',
-                'city_name': '$_id.city_name',
-                'region_id': '$_id.region',
-                'region_name': '$_id.region_name',
-                'country_id': '$_id.country',
-                'country_name': '$_id.country_name',
-                'count': 1
-            }
-        }
     ]
 
-    results = connection.product_visits.aggregate(pipeline)
-    results = await results.to_list(length=None)
-
-    cities = {}
-    regions = {}
-    countries = {}
-    for row in results:
-        city_id = row.get('city_id')
-        region_id = row.get('region_id')
-        country_id = row.get("country_id")
-        if not city_id or not region_id or not country_id:
-            if cities.get("unknown"):
-                cities['unknown']['count'] += row.get('count')
-            else:
-                cities['unknown'] = {
-                    'name': 'Unknown',
-                    'count': row.get('count')
-                }
-            continue
-        cities[city_id] = {
-            "name": row.get("city_name"),
-            "count": row.get("count")
-        }
-        if not regions.get(region_id):
-            regions[region_id] = {
-                "name": row.get("region_name"),
-                "count": row.get("count")
-            }
-        else:
-            regions[region_id]['count'] += row.get('count')
-        if not countries.get(country_id):
-            countries[country_id] = {
-                "name": row.get("country_name"),
-                "count": row.get("count")
-            }
-        else:
-            countries[country_id]['count'] += row.get('count')
-    cities = sorted(cities.values(), key=lambda x: x['count'], reverse=True)[:10]
-    regions = sorted(regions.values(), key=lambda x: x['count'], reverse=True)[:10]
-    countries = sorted(countries.values(), key=lambda x: x['count'], reverse=True)[:10]
-    pipeline = [
-        {'$match': {'product': product.id}},
-        {'$sort': {'time': -1}},
-        {'$limit': 5},
-        {'$lookup': {
-            'from': 'cities',
-            'localField': 'city',
-            'foreignField': 'id',
-            'as': 'city_info'
-        }},
-        {'$unwind': '$city_info'},
-        {'$lookup': {
-            'from': 'regions',
-            'localField': 'city_info.region',
-            'foreignField': 'id',
-            'as': 'region_info'
-        }},
-        {'$unwind': '$region_info'},
-        {'$lookup': {
-            'from': 'countries',
-            'localField': 'region_info.country',
-            'foreignField': 'id',
-            'as': 'country_info'
-        }},
-        {'$unwind': '$country_info'},
-        {'$lookup': {
-            'from': 'users',
-            'localField': 'user',
-            'foreignField': 'id',
-            'as': 'user_info'
-        }},
-        {'$unwind': '$user_info'},
-        {'$project': {
-
-            'time': 1,
-            'isp': 1,
-            'postal': 1,
-            'ip': '$user_info.ip',
-            'timezone': '$city_info.timezone',
-            'city': '$city_info.name',
-            'region': '$region_info.name',
-            'country': '$country_info.name',
-            'continent': '$country_info.continent'
-        }}
-    ]
-    results = await connection.product_visits.aggregate(pipeline).to_list(None)
-
-    latest = [
-        RequestData(
-            ip=x.get('ip'),
-            time=x.get('time'),
-            isp=x.get('isp'),
-            postal=x.get('postal'),
-            timezone=x.get('timezone'),
-            city=x.get('city'),
-            region=x.get('region'),
-            country=x.get('country'),
-            continent=x.get('continent')
-        )
-        for x in results
-    ]
-    return CustomResponse.get_success_response(f"{code} info",
-                                               data=ProductInfoResponse(
-                                                   name=product.name,
-                                                   latest_visits=latest,
-                                                   cities=cities, countries=countries,
-                                                   regions=regions))
+    results = await connection.visits.aggregate(pipeline).to_list(None)
+    top_cities = results[0].get('top_cities', [])
+    top_cities = [LocationData(
+        location=f"{x.get('city')}, {x.get('region')}, {x.get('country')}",
+        count=x.get('total_ci_sum', 0)
+    ) for x in top_cities]
+    top_regions = results[0].get('top_regions', [])
+    top_regions = [LocationData(
+        location=f"{x.get('region')}, {x.get('country')}",
+        count=x.get('total_r_sum', 0)
+    ) for x in top_regions]
+    top_countries = results[0].get('top_countries', [])
+    top_countries = [LocationData(
+        location=f"{x.get('country')}",
+        count=x.get('total_co_sum', 0)
+    ) for x in top_countries]
+    return CustomResponse.get_success_response(f"{code} locations",
+                                               data=ProductLocationsResponse(
+                                                   top_cities=top_cities,
+                                                   top_countries=top_countries,
+                                                   top_regions=top_regions
+                                               ))

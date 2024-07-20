@@ -11,20 +11,15 @@ class Connection:
     client: motor.motor_asyncio.AsyncIOMotorClient
     db: motor.motor_asyncio.AsyncIOMotorDatabase
     products: motor.motor_asyncio.AsyncIOMotorCollection
-    users: motor.motor_asyncio.AsyncIOMotorCollection
-    product_visits: motor.motor_asyncio.AsyncIOMotorCollection
-    regions: motor.motor_asyncio.AsyncIOMotorCollection
-    countries: motor.motor_asyncio.AsyncIOMotorCollection
-    cities: motor.motor_asyncio.AsyncIOMotorCollection
+    visits: motor.motor_asyncio.AsyncIOMotorCollection
+    admin_users: motor.motor_asyncio.AsyncIOMotorCollection
+
     def __init__(self):
         self.client = motor.motor_asyncio.AsyncIOMotorClient(DB_URL)
         self.db = self.client.get_database(name=DB_NAME)
         self.products = self.db.get_collection('products')
-        self.users = self.db.get_collection('users')
-        self.product_visits = self.db.get_collection('product_visits')
-        self.regions = self.db.get_collection('regions')
-        self.countries = self.db.get_collection('countries')
-        self.cities = self.db.get_collection('cities')
+        self.admin_users = self.db.get_collection('admin_users')
+        self.visits = self.db.get_collection('visits')
 
     @staticmethod
     async def unique_index(collection: motor.motor_asyncio.AsyncIOMotorCollection, key: str):
@@ -39,9 +34,8 @@ class Connection:
     async def initialize_database(self):
         await self.unique_index(self.products, 'name')
         await self.unique_index(self.products, 'code')
-        await self.unique_index(self.users, 'ip')
-        await self.unique_index(self.countries, 'code')
-        await self.unique_index(self.countries, 'name')
+        await self.unique_index(self.visits, 'id')
+        await self.unique_index(self.admin_users, 'email')
 
     def __getitem__(self, collection_name: str) -> motor.motor_asyncio.AsyncIOMotorCollection | None:
         return self.db.get_collection(collection_name)
