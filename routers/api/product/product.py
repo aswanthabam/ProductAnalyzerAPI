@@ -188,9 +188,11 @@ async def list_products():
                 }
             }
         ]
-        visit_count = (await connection.visits.aggregate(pipeline).to_list(None))[0].get('total_count', 0)
+        visit_count = (await connection.visits.aggregate(pipeline).to_list(None))
+        visit_count = visit_count[0].get('total_count', 0) if len(visit_count) > 0 else 0
         pipeline[0]['$match']['date_'] = {'$gte': start_of_month, '$lt': start_of_next_month}
-        monthly_visit = (await connection.visits.aggregate(pipeline).to_list(None))[0].get('total_count', 0)
+        monthly_visit = (await connection.visits.aggregate(pipeline).to_list(None))
+        monthly_visit = monthly_visit[0].get('total_count', 0) if len(monthly_visit) > 0 else 0
         ps.append(
             ProductResponse(name=product.name, code=product.code, created_at=product.created_at,
                             total_visits=visit_count, monthly_visits=monthly_visit))
