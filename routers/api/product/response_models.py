@@ -3,6 +3,11 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class ProductInfoResponse(BaseModel):
+    name: str
+    code: str
+
+
 class ProductResponse(BaseModel):
     name: str
     code: str
@@ -17,19 +22,29 @@ class ListProductsResponse(BaseModel):
 
 class RequestData(BaseModel):
     ip: str | None
+    path: str | None
+    method: str | None
     time: datetime | None
     isp: str | None
     postal: str | None
     timezone: str | None
-    city: str | None
-    region: str | None
-    country: str | None
-    continent: str | None
+    location: str | None
+    user_agent: str | None
 
 
-class ProductInfoResponse(BaseModel):
-    name: str
-    latest_visits: list[RequestData]
-    countries: list[dict]
-    regions: list[dict]
-    cities: list[dict]
+class ProductRequestsResponse(BaseModel):
+    page: int
+    total_pages: int
+    total: int
+    page_size: int
+    requests: list[RequestData]
+
+
+class LocationData(BaseModel):
+    location: str
+    count: int
+
+class ProductLocationsResponse(BaseModel):
+    top_cities: list[LocationData]
+    top_countries: list[LocationData]
+    top_regions: list[LocationData]

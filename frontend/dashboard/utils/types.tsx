@@ -6,26 +6,32 @@ export type ProductInfo = {
 };
 
 export type RequestData = {
-  ip: string | null;
-  time: string | null;
-  isp: string | null;
-  postal: string | null;
-  timezone: string | null;
-  city: string | null;
-  region: string | null;
-  country: string | null;
-  continent: string | null;
+  ip: string;
+  path: string;
+  method: string;
+  time: string;
+  isp: string;
+  postal: string;
+  timezone: string;
+  location: string;
+  user_agent: string;
 };
 
-export type CountData = {
-  name: string;
+export type LocationData = {
+  location: string;
   count: number;
 };
 
-export type ProductDetailResponse = {
-  name: string;
-  latest_visits: RequestData[];
-  countries: CountData[];
-  regions: CountData[];
-  cities: CountData[];
+export type ProductLocationsResponse = {
+  top_cities: LocationData[];
+  top_regions: LocationData[];
+  top_countries: LocationData[];
+};
+
+export type ProductRequestsResponse = {
+  page: number;
+  total_pages: number;
+  total: number;
+  page_size: number;
+  requests: RequestData[];
 };
