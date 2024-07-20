@@ -3,6 +3,11 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class ProductInfoResponse(BaseModel):
+    name: str
+    code: str
+
+
 class ProductResponse(BaseModel):
     name: str
     code: str

@@ -10,7 +10,7 @@ from starlette.requests import Request
 from db.connection import Connection
 from db.models import Products, VisitData, Visit
 from routers.api.product.response_models import ProductResponse, ListProductsResponse, RequestData, \
-    ProductRequestsResponse, LocationData, ProductLocationsResponse
+    ProductRequestsResponse, LocationData, ProductLocationsResponse, ProductInfoResponse
 from utils.response import CustomResponse
 
 router = APIRouter(
@@ -80,6 +80,17 @@ async def create_product(code: str = Form(...), name: str = Form(...), password:
     except pymongo.errors.DuplicateKeyError as e:
         return CustomResponse.get_failure_response("Product already exists.")
     return CustomResponse.get_success_response("Product Created")
+
+
+@router.get('/{code}/info/', description="Get information about a project")
+async def product_info(code: str):
+    connection = Connection()
+    product = await connection.products.find_one({'code': code})
+    if not product:
+        return CustomResponse.get_failure_response("No product with the code found!")
+    product = Products(**product)
+    return CustomResponse.get_success_response(f"{code} info",
+                                               data=ProductInfoResponse(name=product.name, code=product.code))
 
 
 @router.get('/{code}/visit/', description="Visit a product")
