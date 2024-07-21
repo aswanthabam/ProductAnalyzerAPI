@@ -34,10 +34,11 @@ class Visit(BaseModel):
     date_: datetime = Field(..., default_factory=lambda: datetime.now(UTC))
 
 
-class AdminUsers(BaseModel):
+class Users(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     email: str = Field(...)
     password: str = Field(...)
+    is_admin: bool = Field(False)
 
 
 class Products(BaseModel):

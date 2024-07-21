@@ -1,16 +1,18 @@
 import math
 from datetime import datetime, UTC, timedelta
+from typing import Annotated
 
 import decouple
 import pymongo.errors
 import requests
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Form, Depends
 from starlette.requests import Request
 
 from db.connection import Connection
-from db.models import Products, VisitData, Visit
+from db.models import Products, VisitData, Visit, Users
 from routers.api.product.response_models import ProductResponse, ListProductsResponse, RequestData, \
     ProductRequestsResponse, LocationData, ProductLocationsResponse, ProductInfoResponse
+from utils.auth import get_admin_user
 from utils.response import CustomResponse
 
 router = APIRouter(
@@ -71,9 +73,8 @@ class IPAPI:
 
 
 @router.post('/create/', description="Create a product")
-async def create_product(code: str = Form(...), name: str = Form(...), password: str = Form(...)):
-    if password != PASSWORD:
-        return CustomResponse.get_failure_response("Unauthorized!")
+async def create_product(current_user: Annotated[Users, Depends(get_admin_user)], code: str = Form(...),
+                         name: str = Form(...)):
     connection = Connection()
     try:
         await connection.products.insert_one(Products(code=code, name=name).model_dump())
@@ -83,7 +84,7 @@ async def create_product(code: str = Form(...), name: str = Form(...), password:
 
 
 @router.get('/{code}/info/', description="Get information about a project")
-async def product_info(code: str):
+async def product_info(current_user: Annotated[Users, Depends(get_admin_user)], code: str):
     connection = Connection()
     product = await connection.products.find_one({'code': code})
     if not product:
@@ -200,7 +201,8 @@ async def list_products():
 
 
 @router.get('/{code}/requests', description="Get information about a project")
-async def product_requests(code: str, page: int = 1, page_size: int = 10):
+async def product_requests(current_user: Annotated[Users, Depends(get_admin_user)], code: str, page: int = 1,
+                           page_size: int = 10):
     connection = Connection()
     product = await connection.products.find_one({'code': code})
     if not product:
@@ -305,7 +307,7 @@ async def product_requests(code: str, page: int = 1, page_size: int = 10):
 
 
 @router.get('/{code}/locations', description="Get information about a project")
-async def product_locations(code: str):
+async def product_locations(current_user: Annotated[Users, Depends(get_admin_user)], code: str):
     connection = Connection()
     product = await connection.products.find_one({'code': code})
     if not product:
