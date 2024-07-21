@@ -16,24 +16,20 @@
   ],
   "routes": [
     {
-      "src": "/dashboard/(.*)\\.(.*)",
+      "src": "/dashboard/(.+)\\.(.+)$",
       "dest": "/frontend/build/dashboard/$1.$2"
     },
     {
-      "src": "/dashboard|/dashboard/",
+      "src": "/dashboard$|/dashboard/$",
       "dest": "/frontend/build/dashboard/index.html"
     },
     {
-      "src": "/dashboard/(.*)/",
-      "dest": "/frontend/build/dashboard/$1.html"
+      "src": "^/dashboard/([^/?]+)(.*)$",
+      "dest": "/frontend/build/dashboard/$1.html?$2"
     },
     {
-      "src": "/dashboard/(.*)",
+      "src": "/dashboard/(.+)/$|/dashboard/(.+)$",
       "dest": "/frontend/build/dashboard/$1.html"
-    },
-    {
-      "src": "/dashboard/(.*)",
-      "dest": "/frontend/build/dashboard/404.html"
     },
     {
       "src": "(.*)",

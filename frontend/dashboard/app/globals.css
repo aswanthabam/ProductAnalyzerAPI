@@ -4,5 +4,8 @@ body {
   padding: 0;
   color: #fff;
   background-color: #222;
+}
+.container {
+  width: calc(100% - 60px);
   padding: 30px;
 }

@@ -12,13 +12,13 @@ class Connection:
     db: motor.motor_asyncio.AsyncIOMotorDatabase
     products: motor.motor_asyncio.AsyncIOMotorCollection
     visits: motor.motor_asyncio.AsyncIOMotorCollection
-    admin_users: motor.motor_asyncio.AsyncIOMotorCollection
+    users: motor.motor_asyncio.AsyncIOMotorCollection
 
     def __init__(self):
         self.client = motor.motor_asyncio.AsyncIOMotorClient(DB_URL)
         self.db = self.client.get_database(name=DB_NAME)
         self.products = self.db.get_collection('products')
-        self.admin_users = self.db.get_collection('admin_users')
+        self.users = self.db.get_collection('users')
         self.visits = self.db.get_collection('visits')
 
     @staticmethod
@@ -35,7 +35,7 @@ class Connection:
         await self.unique_index(self.products, 'name')
         await self.unique_index(self.products, 'code')
         await self.unique_index(self.visits, 'id')
-        await self.unique_index(self.admin_users, 'email')
+        await self.unique_index(self.users, 'email')
 
     def __getitem__(self, collection_name: str) -> motor.motor_asyncio.AsyncIOMotorCollection | None:
         return self.db.get_collection(collection_name)
