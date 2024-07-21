@@ -3,19 +3,20 @@ import { ProductInfo } from "@/utils/types";
 import styles from "./page.module.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Get } from "@/utils/api";
 const apiUrl: string = process.env.NEXT_PUBLIC_API_URL || "";
 export default function Home() {
   const [products, setProducts] = useState<ProductInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   useEffect(() => {
-    fetch(`${apiUrl}/api/product/list`)
+    Get(`${apiUrl}/api/product/list`)
       .then((res) => res.json())
       .then((data) => {
         if (data.status == "success") {
           setProducts(data.data.products);
         } else {
-          alert("Failed to fetch products");
+          alert(data.message);
         }
         setLoading(false);
       })

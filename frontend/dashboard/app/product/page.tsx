@@ -1,15 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 import styles from "./page.module.css";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ProductInfo,
   ProductLocationsResponse,
   RequestData,
 } from "@/utils/types";
+import { Get } from "@/utils/api";
 const apiUrl: string = process.env.NEXT_PUBLIC_API_URL || "";
 export default function Product(p: any) {
   const params = useSearchParams();
+  const router = useRouter();
   const product = params!.get("product");
   const [locationData, setLocationData] =
     useState<ProductLocationsResponse | null>(null);
@@ -19,14 +21,17 @@ export default function Product(p: any) {
   const [totalRequests, setTotalRequests] = useState(0);
   const [requests, setRequests] = useState<RequestData[] | null>(null);
   useEffect(() => {
-    fetch(`${apiUrl}/api/product/${product}/info`)
-      .then((res) => res.json())
-      .then((data) => {
+    Get(`${apiUrl}/api/product/${product}/info`)
+      .then(async (res) => {
+        var data = await res.json();
         if (data.status == "success") {
           console.log(data.data);
           setProductInfo(data.data);
         } else {
           alert(data.message);
+          if (res.status == 401) {
+            router.push("/login");
+          }
         }
       })
       .catch((err) => {
@@ -37,7 +42,7 @@ export default function Product(p: any) {
     if (productInfo == null) {
       return;
     }
-    fetch(`${apiUrl}/api/product/${product}/locations`)
+    Get(`${apiUrl}/api/product/${product}/locations`)
       .then((res) => res.json())
       .then((data) => {
         if (data.status == "success") {
@@ -55,7 +60,7 @@ export default function Product(p: any) {
     if (productInfo == null) {
       return;
     }
-    fetch(`${apiUrl}/api/product/${product}/requests?page=${page}`)
+    Get(`${apiUrl}/api/product/${product}/requests?page=${page}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.status == "success") {
