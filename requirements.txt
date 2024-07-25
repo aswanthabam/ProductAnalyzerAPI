@@ -1,8 +1,0 @@
-fastapi==0.111.0
-python-decouple==3.8
-requests==2.31.0
-uvicorn==0.29.0
-motor==3.4.0
-a2wsgi==1.10.4
-pyjwt==2.8.0
-passlib[bcrypt]==1.7.4

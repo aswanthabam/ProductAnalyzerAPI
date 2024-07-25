@@ -1,8 +1,37 @@
-venv
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Output of the go coverage tool
+*.out
+
+# Packages
+vendor/
+
+# Logs
+*.log
+
+# IDE and editor configuration files
+.idea/
+*.swp
+*.swo
+*.iml
+.vscode/
+
+# Dependency directories
+pkg/
+bin/
 .env
-.idea
-.vscode
-build
-__pycache__
-.vercel
-node_modules
+
+# Go modules
+go.sum
+
+# Test binary, coverage data
+*.test
+*.cover
+
+# Go workspace file
+go.work
