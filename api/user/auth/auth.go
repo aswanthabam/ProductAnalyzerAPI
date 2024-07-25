@@ -19,7 +19,11 @@ func Register(c *gin.Context) {
 		"password": params.Password,
 	})
 	if err != nil {
-		response.SendFailureResponse(c, "Failed to register user", err, nil)
+		if db.IsDuplicateKeyError(err) {
+			response.SendFailureResponse(c, "User Already Exists", db.DuplicateError(), nil)
+			return
+		}
+		response.SendFailureResponse(c, "Failed to Register user", err, nil)
 		return
 	}
 	response.SendSuccessResponse(c, "User registered successfully", nil, nil)

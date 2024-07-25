@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"log"
 	"productanalyzer/api/config"
 	"sync"
 
@@ -46,4 +47,20 @@ func (conn *DBConnection) Close() error {
 
 func (conn *DBConnection) Collection(name string) *mongo.Collection {
 	return conn.Database.Collection(name)
+}
+
+func (conn *DBConnection) Initialize() error {
+	user := conn.Collection("users")
+	createUniqueIndex(user, "email")
+	return nil
+}
+
+func createUniqueIndex(collection *mongo.Collection, key string) {
+	_, err := collection.Indexes().CreateOne(context.TODO(), mongo.IndexModel{
+		Keys:    map[string]interface{}{key: 1},
+		Options: options.Index().SetUnique(true),
+	})
+	if err != nil {
+		log.Print(err)
+	}
 }

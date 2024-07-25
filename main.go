@@ -26,6 +26,7 @@ func main() {
 		log.Panic(err)
 	}
 	defer db.Connection.Close()
+	db.Connection.Initialize()
 	router := SetupRouter()
 	if err := router.Run("localhost:8000"); err != nil {
 		log.Panic(err)
