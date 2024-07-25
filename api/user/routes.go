@@ -1,10 +1,14 @@
 package user
 
-import "github.com/gin-gonic/gin"
+import (
+	"productanalyzer/api/api/user/auth"
+
+	"github.com/gin-gonic/gin"
+)
 
 func SetupRoutes(router *gin.RouterGroup) {
-	auth := router.Group("/auth")
+	authRoute := router.Group("/auth")
 	{
-		auth.POST("/register", Register)
+		authRoute.POST("/register", auth.Register)
 	}
 }
