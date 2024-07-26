@@ -10,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type User struct {
@@ -76,6 +77,14 @@ func CreateOTP(userId primitive.ObjectID, scope string) (string, *api_error.APIE
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	previousOtp := OTP{}
+	opts := options.FindOne().SetSort(bson.D{{"created_at", -1}})
+	if err := Connection.OTP.FindOne(ctx, bson.M{"user_id": userId, "scope": scope, "verified": false}, opts).Decode(&previousOtp); err == nil {
+		if time.Now().UTC().Sub(previousOtp.CreatedAt.Time()) < 2*time.Minute {
+			return "", api_error.NewAPIError("OTP Already Sent", 400, "Please wait atleast 2 minutes before trying again")
+		}
+	}
+
 	_, err = Connection.OTP.InsertOne(ctx, otp)
 	if err != nil {
 		return "", api_error.UnexpectedError(err)
