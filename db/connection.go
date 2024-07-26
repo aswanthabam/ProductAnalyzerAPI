@@ -16,10 +16,20 @@ var Connection DBConnection
 var mu sync.Mutex
 
 type DBConnection struct {
-	Client   *mongo.Client
-	Database *mongo.Database
+	Client   *mongo.Client     // Connection to MongoDB
+	Database *mongo.Database   // Database instance
+	User     *mongo.Collection // Collection of users
+	Visits   *mongo.Collection // Collection of visits
+	Products *mongo.Collection // Collection of products
+	OTP      *mongo.Collection // Collection of OTPs
 }
 
+/*
+Connect to MongoDB and initialize the connection, return error if anything went wrong.
+The DBConnection will be initialized only after calling this method.
+
+Requires Environment Variables: MONGODB_URI, MONGODB_DB set before calling this method.
+*/
 func (conn *DBConnection) Connect() error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -38,6 +48,20 @@ func (conn *DBConnection) Connect() error {
 	return nil
 }
 
+/*
+Fetch all collections from the database and store them in the DBConnection struct.
+*/
+func (conn *DBConnection) FetchCollections() error {
+	conn.User = conn.collection("users")
+	conn.Visits = conn.collection("visits")
+	conn.Products = conn.collection("products")
+	conn.OTP = conn.collection("otp")
+	return nil
+}
+
+/*
+Close the connection to MongoDB.
+*/
 func (conn *DBConnection) Close() error {
 	if conn.Client != nil {
 		return conn.Client.Disconnect(context.TODO())
@@ -45,16 +69,24 @@ func (conn *DBConnection) Close() error {
 	return nil
 }
 
-func (conn *DBConnection) Collection(name string) *mongo.Collection {
+/*
+Return a collection by name.
+*/
+func (conn *DBConnection) collection(name string) *mongo.Collection {
 	return conn.Database.Collection(name)
 }
 
+/*
+Initialize the database by creating indexes and other necessary operations.
+*/
 func (conn *DBConnection) Initialize() error {
-	user := conn.Collection("users")
-	createUniqueIndex(user, "email")
+	createUniqueIndex(conn.User, "email")
 	return nil
 }
 
+/*
+Create a unique index on the collection.
+*/
 func createUniqueIndex(collection *mongo.Collection, key string) {
 	_, err := collection.Indexes().CreateOne(context.TODO(), mongo.IndexModel{
 		Keys:    map[string]interface{}{key: 1},

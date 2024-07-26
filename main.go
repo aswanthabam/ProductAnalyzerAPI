@@ -25,6 +25,10 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
+	err = db.Connection.FetchCollections()
+	if err != nil {
+		log.Panic(err)
+	}
 	defer db.Connection.Close()
 	db.Connection.Initialize()
 	router := SetupRouter()

@@ -1,8 +1,7 @@
 package repsonse
 
 import (
-	"fmt"
-
+	api_error "productanalyzer/api/errors"
 	utils "productanalyzer/api/utils"
 
 	"github.com/gin-gonic/gin"
@@ -15,21 +14,28 @@ type CustomResponse struct {
 	Data    interface{} `json:"data"`
 }
 
-func SendFailureResponse(cn *gin.Context, message string, err error, statusCode *int) {
-	if statusCode == nil {
-		statusCode = new(int)
-		*statusCode = 400
-	}
+func SendFailureResponse(cn *gin.Context, err error) {
+	var statusCode int
+	var message string
 	if err == nil {
-		err = fmt.Errorf("")
+		err = api_error.UnexpectedError(nil)
 	}
 	var data interface{}
-	if _, ok := err.(validator.ValidationErrors); ok {
+	switch err := err.(type) {
+	case *api_error.APIError:
+		data = gin.H{"message": err.Message}
+		statusCode = err.Code
+		message = err.Title
+	case validator.ValidationErrors:
 		data = utils.FormatValidationErrors(err)
-	} else {
+		message = "Validation Error"
+		statusCode = 400
+	default:
 		data = gin.H{"message": err.Error()}
+		statusCode = 500
+		message = "Internal Server Error"
 	}
-	cn.JSON(*statusCode, gin.H{
+	cn.JSON(statusCode, gin.H{
 		"status":  "failed",
 		"message": message,
 		"data":    data,

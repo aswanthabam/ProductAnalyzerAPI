@@ -9,9 +9,11 @@ import (
 )
 
 type Configuration struct {
-	MONGODB_URI string
-	MONGODB_DB  string
-	SECRET_KEY  string
+	MONGODB_URI    string
+	MONGODB_DB     string
+	SECRET_KEY     string
+	RESEND_API_KEY string
+	MAIL_ID        string
 }
 
 var Config Configuration
@@ -27,11 +29,19 @@ func (cn *Configuration) Load() error {
 	}
 	dbname := os.Getenv("MONGODB_DB")
 	if dbname == "" {
-		notFound += "MONGODB_DB"
+		notFound += "MONGODB_DB, "
 	}
 	secret := os.Getenv("SECRET_KEY")
 	if secret == "" {
-		notFound += "SECRET_KEY"
+		notFound += "SECRET_KEY, "
+	}
+	resend_api_key := os.Getenv("RESEND_API_KEY")
+	if resend_api_key == "" {
+		notFound += "RESEND_API_KEY, "
+	}
+	mail_id := os.Getenv("MAIL_ID")
+	if mail_id == "" {
+		notFound += "MAIL_ID, "
 	}
 	if notFound != "" {
 		return fmt.Errorf("ENVIRONMENT VARIABLES NOT FOUND: %s", notFound)
@@ -39,5 +49,7 @@ func (cn *Configuration) Load() error {
 	cn.MONGODB_URI = uri
 	cn.MONGODB_DB = dbname
 	cn.SECRET_KEY = secret
+	cn.RESEND_API_KEY = resend_api_key
+	cn.MAIL_ID = mail_id
 	return nil
 }
