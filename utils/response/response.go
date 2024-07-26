@@ -2,7 +2,7 @@ package repsonse
 
 import (
 	api_error "productanalyzer/api/errors"
-	utils "productanalyzer/api/utils"
+	"productanalyzer/api/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"

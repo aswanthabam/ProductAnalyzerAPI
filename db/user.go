@@ -8,6 +8,7 @@ import (
 	api_error "productanalyzer/api/errors"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -95,4 +96,25 @@ func generateOTP(length int) (string, error) {
 	}
 
 	return string(otp), nil
+}
+
+func VerifyOTP(userId primitive.ObjectID, code, scope string) *api_error.APIError {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	otp := OTP{}
+	Connection.OTP.FindOne(ctx, bson.M{"user_id": userId, "otp": code, "scope": scope}).Decode(&otp)
+	if otp.ID.IsZero() {
+		return api_error.NewAPIError("Invalid OTP", 400, "Invalid OTP")
+	}
+	if otp.Verified {
+		return api_error.NewAPIError("OTP Already Verified", 400, "OTP already used")
+	}
+	if time.Now().UTC().Sub(otp.CreatedAt.Time()) > 10*time.Minute {
+		return api_error.NewAPIError("OTP Expired", 400, "OTP expired")
+	}
+	_, err := Connection.OTP.UpdateOne(ctx, bson.M{"_id": otp.ID}, bson.M{"$set": bson.M{"verified": true}})
+	if err != nil {
+		return api_error.UnexpectedError(err)
+	}
+	return nil
 }
