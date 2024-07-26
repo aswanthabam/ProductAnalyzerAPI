@@ -25,6 +25,7 @@ vendor/
 pkg/
 bin/
 .env
+.env.docker
 
 # Go modules
 go.sum
