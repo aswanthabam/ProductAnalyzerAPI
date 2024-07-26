@@ -27,8 +27,6 @@ bin/
 .env
 .env.docker
 
-# Go modules
-go.sum
 
 # Test binary, coverage data
 *.test
