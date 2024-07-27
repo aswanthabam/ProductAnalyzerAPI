@@ -14,6 +14,7 @@ type Configuration struct {
 	SECRET_KEY     string
 	RESEND_API_KEY string
 	MAIL_ID        string
+	HOST           string
 }
 
 var Config Configuration
@@ -43,6 +44,10 @@ func (cn *Configuration) Load() error {
 	if mail_id == "" {
 		notFound += "MAIL_ID, "
 	}
+	host := os.Getenv("HOST")
+	if host == "" {
+		notFound += "HOST, "
+	}
 	if notFound != "" {
 		return fmt.Errorf("ENVIRONMENT VARIABLES NOT FOUND: %s", notFound)
 	}
@@ -51,5 +56,6 @@ func (cn *Configuration) Load() error {
 	cn.SECRET_KEY = secret
 	cn.RESEND_API_KEY = resend_api_key
 	cn.MAIL_ID = mail_id
+	cn.HOST = host
 	return nil
 }

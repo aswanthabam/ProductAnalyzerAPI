@@ -2,10 +2,9 @@ package db
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
-	"math/big"
+	"productanalyzer/api/db"
 	api_error "productanalyzer/api/errors"
+	"productanalyzer/api/utils"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,49 +12,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type User struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty"`
-	Fullname      string             `bson:"fullname"`
-	Email         string             `bson:"email"`
-	EmailVerified bool               `bson:"email_verified"`
-	Password      string             `bson:"password"`
-	CreatedAt     primitive.DateTime `bson:"created_at"`
-}
-
-type OTP struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty"`
-	UserID    primitive.ObjectID `bson:"user_id"`
-	OTP       string             `bson:"otp"`
-	Scope     string             `bson:"scope"`
-	Verified  bool               `bson:"verified"`
-	CreatedAt primitive.DateTime `bson:"created_at"`
-}
-
-type UserPlan struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty"`
-	UserID     primitive.ObjectID `bson:"user_id"`
-	PlanID     primitive.ObjectID `bson:"plan_id"`
-	QuotaUsage Quota              `bson:"quota"`
-	StartDate  primitive.DateTime `bson:"start_date"`
-	EndDate    primitive.DateTime `bson:"end_date"`
-}
-
-/*
-	INDIRECT TYPES
-*/
-
-type Quota struct {
-	Hits     int `json:"hits"`
-	Products int `json:"products"`
-}
-
+// Inserts a new user into the database
 func InsertUser(usr *User) (primitive.ObjectID, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	usr.CreatedAt = primitive.NewDateTimeFromTime(time.Now().UTC())
-	result, err := Connection.User.InsertOne(ctx, usr)
+	result, err := db.Connection.User.InsertOne(ctx, usr)
 	if err != nil {
-		if IsDuplicateKeyError(err) {
+		if db.IsDuplicateKeyError(err) {
 			return primitive.NilObjectID, api_error.NewAPIError("User Already Exists", 409, "User already exists")
 		}
 		return primitive.NilObjectID, api_error.UnexpectedError(err)
@@ -63,8 +27,9 @@ func InsertUser(usr *User) (primitive.ObjectID, *api_error.APIError) {
 	return result.InsertedID.(primitive.ObjectID), nil
 }
 
+// Creates a new OTP for the user on the given scope
 func CreateOTP(userId primitive.ObjectID, scope string) (string, *api_error.APIError) {
-	code, err := generateOTP(6)
+	code, err := utils.GenerateOTP(6)
 	if err != nil {
 		return "", api_error.UnexpectedError(err)
 	}
@@ -79,39 +44,25 @@ func CreateOTP(userId primitive.ObjectID, scope string) (string, *api_error.APIE
 	defer cancel()
 	previousOtp := OTP{}
 	opts := options.FindOne().SetSort(bson.D{{"created_at", -1}})
-	if err := Connection.OTP.FindOne(ctx, bson.M{"user_id": userId, "scope": scope, "verified": false}, opts).Decode(&previousOtp); err == nil {
+	if err := db.Connection.OTP.FindOne(ctx, bson.M{"user_id": userId, "scope": scope, "verified": false}, opts).Decode(&previousOtp); err == nil {
 		if time.Now().UTC().Sub(previousOtp.CreatedAt.Time()) < 2*time.Minute {
 			return "", api_error.NewAPIError("OTP Already Sent", 400, "Please wait atleast 2 minutes before trying again")
 		}
 	}
 
-	_, err = Connection.OTP.InsertOne(ctx, otp)
+	_, err = db.Connection.OTP.InsertOne(ctx, otp)
 	if err != nil {
 		return "", api_error.UnexpectedError(err)
 	}
 	return code, nil
 }
 
-func generateOTP(length int) (string, error) {
-	const digits = "0123456789"
-	otp := make([]byte, length)
-
-	for i := 0; i < length; i++ {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(digits))))
-		if err != nil {
-			return "", fmt.Errorf("failed to generate random number: %v", err)
-		}
-		otp[i] = digits[num.Int64()]
-	}
-
-	return string(otp), nil
-}
-
+// Verifies the OTP for the user
 func VerifyOTP(userId primitive.ObjectID, code, scope string) *api_error.APIError {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	otp := OTP{}
-	Connection.OTP.FindOne(ctx, bson.M{"user_id": userId, "otp": code, "scope": scope}).Decode(&otp)
+	db.Connection.OTP.FindOne(ctx, bson.M{"user_id": userId, "otp": code, "scope": scope}).Decode(&otp)
 	if otp.ID.IsZero() {
 		return api_error.NewAPIError("Invalid OTP", 400, "Invalid OTP")
 	}
@@ -121,7 +72,42 @@ func VerifyOTP(userId primitive.ObjectID, code, scope string) *api_error.APIErro
 	if time.Now().UTC().Sub(otp.CreatedAt.Time()) > 10*time.Minute {
 		return api_error.NewAPIError("OTP Expired", 400, "OTP expired")
 	}
-	_, err := Connection.OTP.UpdateOne(ctx, bson.M{"_id": otp.ID}, bson.M{"$set": bson.M{"verified": true}})
+	_, err := db.Connection.OTP.UpdateOne(ctx, bson.M{"_id": otp.ID}, bson.M{"$set": bson.M{"verified": true}})
+	if err != nil {
+		return api_error.UnexpectedError(err)
+	}
+	return nil
+}
+
+// Fetches the user from the database by email
+func GetUserByEmail(email string) (*User, *api_error.APIError) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	user := User{}
+	err := db.Connection.User.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	if err != nil {
+		return nil, api_error.NewAPIError("User not found", 404, "User not found")
+	}
+	return &user, nil
+}
+
+// Fetches the user from the database by ID
+func GetUserByID(userId primitive.ObjectID) (*User, *api_error.APIError) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	user := User{}
+	err := db.Connection.User.FindOne(ctx, bson.M{"_id": userId}).Decode(&user)
+	if err != nil {
+		return nil, api_error.NewAPIError("User not found", 404, "User not found")
+	}
+	return &user, nil
+}
+
+// Sets the email verification status of the user
+func SetEmailVerified(userId primitive.ObjectID, verified bool) *api_error.APIError {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := db.Connection.User.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$set": bson.M{"email_verified": verified}})
 	if err != nil {
 		return api_error.UnexpectedError(err)
 	}

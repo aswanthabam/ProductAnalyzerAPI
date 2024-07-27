@@ -1,16 +1,16 @@
 package auth
 
 import (
-	"productanalyzer/api/db"
+	user_db "productanalyzer/api/db/user"
 	api_error "productanalyzer/api/errors"
 	mailer "productanalyzer/api/mail"
 	"productanalyzer/api/utils"
 	response "productanalyzer/api/utils/response"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
+// Register User Endpoint [POST]
 func Register(c *gin.Context) {
 	var params RegisterParams
 	if err := c.ShouldBind(&params); err != nil {
@@ -23,18 +23,18 @@ func Register(c *gin.Context) {
 	} else {
 		params.Password = passwordHash
 	}
-	user := db.User{
+	user := user_db.User{
 		Fullname:      params.Fullname,
 		Email:         params.Email,
 		Password:      params.Password,
 		EmailVerified: false,
 	}
-	userId, err := db.InsertUser(&user)
+	userId, err := user_db.InsertUser(&user)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	otp, err := db.CreateOTP(userId, "email_verification")
+	otp, err := user_db.CreateOTP(userId, "email_verification")
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -55,23 +55,24 @@ func Register(c *gin.Context) {
 	response.SendSuccessResponse(c, "User registered successfully", tokenData, nil)
 }
 
+// Verify Email Endpoint [POST]
 func VerifyEmail(c *gin.Context) {
 	usr, exists := c.Get("user")
 	if !exists {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(db.User)
+	user := usr.(*user_db.User)
 	var params VerifyEmailParams
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	if err := db.VerifyOTP(user.ID, params.OTP, "email_verification"); err != nil {
+	if err := user_db.VerifyOTP(user.ID, params.OTP, "email_verification"); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	_, err := db.Connection.User.UpdateOne(c, bson.M{"_id": user.ID}, bson.M{"$set": bson.M{"email_verified": true}})
+	err := user_db.SetEmailVerified(user.ID, true)
 	if err != nil {
 		response.SendFailureResponse(c, api_error.UnexpectedError(err))
 		return
@@ -79,13 +80,14 @@ func VerifyEmail(c *gin.Context) {
 	response.SendSuccessResponse(c, "Email verified successfully", nil, nil)
 }
 
+// Resend OTP Endpoint [POST]
 func ResendOTP(c *gin.Context) {
 	usr, exists := c.Get("user")
 	if !exists {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(db.User)
+	user := usr.(*user_db.User)
 	var params ResendOTPParams
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
@@ -95,7 +97,7 @@ func ResendOTP(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.NewAPIError("Email already verified", 400, "Email is already verified"))
 		return
 	}
-	otp, err := db.CreateOTP(user.ID, params.Scope)
+	otp, err := user_db.CreateOTP(user.ID, params.Scope)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -106,4 +108,36 @@ func ResendOTP(c *gin.Context) {
 		return
 	}
 	response.SendSuccessResponse(c, "OTP sent successfully", nil, nil)
+}
+
+// Login User Endpoint [POST]
+func Login(c *gin.Context) {
+	var params LoginParams
+	if err := c.ShouldBind(&params); err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	user, err := user_db.GetUserByEmail(params.Email)
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	if !utils.VerifyPassword(user.Password, params.Password) {
+		response.SendFailureResponse(c, api_error.NewAPIError("Invalid credentials", 400, "Invalid email or password"))
+		return
+	}
+	message := "Login successful"
+	if !user.EmailVerified {
+		message = "Login successful, Email not verified"
+		return
+	}
+	token, err := utils.CreateToken(user.ID.Hex())
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	tokenData := TokenData{
+		AccessToken: token,
+	}
+	response.SendSuccessResponse(c, message, tokenData, nil)
 }

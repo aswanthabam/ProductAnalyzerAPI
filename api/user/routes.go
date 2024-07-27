@@ -14,6 +14,7 @@ func SetupRoutes(router *gin.RouterGroup) {
 		protectedAuthRoute.Use(middlewares.AuthMiddleware(false))
 
 		authRoute.POST("/register", auth.Register)
+		authRoute.POST("/login", auth.Login)
 		protectedAuthRoute.POST("/verify-email", auth.VerifyEmail)
 		protectedAuthRoute.POST("/resend-otp", auth.ResendOTP)
 	}

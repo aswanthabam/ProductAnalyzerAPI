@@ -13,3 +13,8 @@ type VerifyEmailParams struct {
 type ResendOTPParams struct {
 	Scope string `form:"scope" binding:"required"`
 }
+
+type LoginParams struct {
+	Email    string `form:"email" binding:"required,email"`
+	Password string `form:"password" binding:"required"`
+}

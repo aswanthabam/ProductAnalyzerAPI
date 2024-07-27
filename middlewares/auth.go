@@ -2,14 +2,13 @@ package middlewares
 
 import (
 	"net/http"
-	"productanalyzer/api/db"
+	user_db "productanalyzer/api/db/user"
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
 	response "productanalyzer/api/utils/response"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -43,8 +42,8 @@ func AuthMiddleware(requireVerifiedEmail bool) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		user := db.User{}
-		if err := db.Connection.User.FindOne(c, bson.M{"_id": userID}).Decode(&user); err != nil {
+		user, err := user_db.GetUserByID(userID)
+		if err != nil {
 			response.SendFailureResponse(c, api_error.NewAPIError("User not found", http.StatusNotFound, "User not found"))
 			c.Abort()
 			return

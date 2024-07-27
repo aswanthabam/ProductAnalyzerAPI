@@ -32,7 +32,7 @@ func main() {
 	defer db.Connection.Close()
 	db.Connection.Initialize()
 	router := SetupRouter()
-	if err := router.Run("0.0.0.0:8000"); err != nil {
+	if err := router.Run(config.Config.HOST); err != nil {
 		log.Panic(err)
 	}
 }
