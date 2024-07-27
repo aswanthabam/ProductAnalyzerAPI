@@ -1,4 +1,4 @@
-package auth
+package auth_route
 
 import (
 	user_db "productanalyzer/api/db/user"
@@ -34,7 +34,7 @@ func Register(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	otp, err := user_db.CreateOTP(userId, "email_verification")
+	otp, err := user_db.CreateOTP(userId, user_db.OTP_SCOPE_EMAIL_VERIFICATION)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -68,7 +68,7 @@ func VerifyEmail(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	if err := user_db.VerifyOTP(user.ID, params.OTP, "email_verification"); err != nil {
+	if err := user_db.VerifyOTP(user.ID, params.OTP, user_db.OTP_SCOPE_EMAIL_VERIFICATION); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
@@ -93,7 +93,7 @@ func ResendOTP(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	if params.Scope == "email_verification" && user.EmailVerified {
+	if params.Scope == user_db.OTP_SCOPE_EMAIL_VERIFICATION && user.EmailVerified {
 		response.SendFailureResponse(c, api_error.NewAPIError("Email already verified", 400, "Email is already verified"))
 		return
 	}

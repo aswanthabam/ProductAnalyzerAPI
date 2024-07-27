@@ -7,12 +7,20 @@ import (
 	"net/http"
 	"productanalyzer/api/config"
 	api_error "productanalyzer/api/errors"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+)
+
+const (
+	DEVICE_TYPE_MOBILE  = "mobile"
+	DEVICE_TYPE_TABLET  = "tablet"
+	DEVICE_TYPE_DESKTOP = "desktop"
 )
 
 type Claims struct {
@@ -108,4 +116,52 @@ func GenerateOTP(length int) (string, error) {
 	}
 
 	return string(otp), nil
+}
+
+// GetDeviceType returns the type of device based on the user agent
+func GetDeviceType(r *http.Request) string {
+	userAgent := strings.ToLower(r.UserAgent())
+
+	mobilePatterns := []string{
+		"android", "webos", "iphone", "ipod", "blackberry", "windows phone",
+		"opera mini", "iemobile", "mobile", "nokia", "fennec", "kindle", "silk",
+		"maemo", "palm", "midp", "samsung", "symbian", "j2me", "wap", "avantgo",
+		"blazer", "plucker", "xiino", "vodafone", "docomo", "softbank",
+	}
+
+	tabletPatterns := []string{
+		"ipad", "tablet", "playbook", "silk", "kindle", "puffin",
+	}
+
+	for _, pattern := range mobilePatterns {
+		if strings.Contains(userAgent, pattern) {
+			if pattern == "iphone" && strings.Contains(userAgent, "ipad") {
+				continue
+			}
+			return DEVICE_TYPE_MOBILE
+		}
+	}
+
+	for _, pattern := range tabletPatterns {
+		if strings.Contains(userAgent, pattern) {
+			return DEVICE_TYPE_TABLET
+		}
+	}
+
+	tabletUserAgents := []string{
+		"(?i)android.*nexus\\s*7",
+		"(?i)android.*nexus\\s*9",
+		"(?i)android.*nexus\\s*10",
+		"(?i)android.*sm-t\\d{3}",
+		"(?i)android.*gt-p\\d{4}",
+		"(?i)android.*sch-i\\d{3}",
+	}
+
+	for _, pattern := range tabletUserAgents {
+		match, _ := regexp.MatchString(pattern, userAgent)
+		if match {
+			return DEVICE_TYPE_TABLET
+		}
+	}
+	return DEVICE_TYPE_DESKTOP
 }

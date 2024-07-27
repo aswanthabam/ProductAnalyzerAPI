@@ -4,6 +4,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+const (
+	OTP_SCOPE_EMAIL_VERIFICATION = "email_verification"
+)
+
 type User struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty"`  // primary key
 	Fullname      string             `bson:"fullname"`       // fullname of the user

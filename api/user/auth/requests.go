@@ -1,4 +1,4 @@
-package auth
+package auth_route
 
 type RegisterParams struct {
 	Fullname string `form:"fullname" binding:"required"`
