@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"net/http"
+	products_db "productanalyzer/api/db/products"
 	user_db "productanalyzer/api/db/user"
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
@@ -12,6 +13,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// AuthMiddleware is a middleware to authenticate the user, it checks the Authorization header and validates the token.
+// If requireVerifiedEmail is true, it will also check if the user has verified their email.
+// If the user is authenticated, it will set the user object in the context.
 func AuthMiddleware(requireVerifiedEmail bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authError := api_error.NewAPIError("Unauthorized", http.StatusUnauthorized, "Authorization Failed")
@@ -54,6 +58,26 @@ func AuthMiddleware(requireVerifiedEmail bool) gin.HandlerFunc {
 			return
 		}
 		c.Set("user", user)
+		c.Next()
+	}
+}
+
+func AccessKeyMiddleware(scope *string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authError := api_error.NewAPIError("Unauthorized", http.StatusUnauthorized, "Invalid API Key. Please provide a valid API Key in the X-API-Key header")
+		key := c.GetHeader("X-API-Key")
+		if key == "" {
+			response.SendFailureResponse(c, authError)
+			c.Abort()
+			return
+		}
+		accessKey, err := products_db.ValidateAPIKey(key, *scope)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			c.Abort()
+			return
+		}
+		c.Set("access_key", accessKey)
 		c.Next()
 	}
 }

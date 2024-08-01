@@ -4,6 +4,7 @@ import (
 	"context"
 	"productanalyzer/api/db"
 	api_error "productanalyzer/api/errors"
+	"productanalyzer/api/utils"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -111,4 +112,21 @@ func VisitProduct(productId primitive.ObjectID, sessionId primitive.ObjectID, ac
 		return api_error.UnexpectedError(err)
 	}
 	return nil
+}
+
+func ValidateAPIKey(apiKey, scope string) (*ProductAccessKey, *api_error.APIError) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	hashedKey, err := utils.HashAPIKey(apiKey)
+	if err != nil {
+		return nil, api_error.UnexpectedError(err)
+	}
+	accessKey := ProductAccessKey{}
+	if err := db.Connection.Products.FindOne(ctx, bson.M{"access_keys.key": hashedKey}).Decode(&accessKey); err != nil {
+		return nil, api_error.NewAPIError("Invalid API Key", 401, "Invalid API Key")
+	}
+	if accessKey.Scope != scope {
+		return nil, api_error.NewAPIError("Invalid API Key", 401, "Invalid Scope, the API Key does not have the required permissions")
+	}
+	return &accessKey, nil
 }
