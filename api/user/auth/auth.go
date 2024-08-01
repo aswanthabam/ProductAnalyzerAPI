@@ -129,7 +129,6 @@ func Login(c *gin.Context) {
 	message := "Login successful"
 	if !user.EmailVerified {
 		message = "Login successful, Email not verified"
-		return
 	}
 	token, err := utils.CreateToken(user.ID.Hex())
 	if err != nil {

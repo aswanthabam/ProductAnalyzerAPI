@@ -25,6 +25,7 @@ type DBConnection struct {
 	ProductVisits      *mongo.Collection // Collection of product visits
 	Location           *mongo.Collection // Collection of locations
 	ProductUserSession *mongo.Collection // Collection of user sessions
+	DeletionList       *mongo.Collection // Collection of deletion list
 }
 
 /*
@@ -62,6 +63,7 @@ func (conn *DBConnection) FetchCollections() error {
 	conn.ProductVisits = conn.collection("product_visits")
 	conn.Location = conn.collection("locations")
 	conn.ProductUserSession = conn.collection("product_user_sessions")
+	conn.DeletionList = conn.collection("deletion_list")
 	return nil
 }
 

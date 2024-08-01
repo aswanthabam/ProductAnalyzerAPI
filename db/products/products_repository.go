@@ -44,7 +44,7 @@ func GetProductByID(productId primitive.ObjectID) (*Product, *api_error.APIError
 	defer cancel()
 	product := Product{}
 	if err := db.Connection.Products.FindOne(ctx, bson.M{"_id": productId}).Decode(&product); err != nil {
-		return nil, api_error.NewAPIError("Product Not Found", 404, "Product not found")
+		return nil, api_error.NewAPIError("Product Not Found", 404, "The requested product was not found")
 	}
 	return &product, nil
 }

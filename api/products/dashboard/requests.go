@@ -19,3 +19,8 @@ type ProductInfoRequest struct {
 type ProductAccessKeysRequest struct {
 	ProductID string `form:"product_id" binding:"required"`
 }
+
+type DeleteProductRequest struct {
+	InstanceId string `form:"instance_id" binding:"required"`
+	Type       string `form:"type" binding:"required"`
+}

@@ -15,7 +15,8 @@ func SetupRoutes(router *gin.RouterGroup) {
 
 		protectedProductsRoute.POST("/create", dashboard_route.CreateProduct)
 		protectedProductsRoute.POST("/create-access-key", dashboard_route.CreateAccessKey)
-		protectedProductsRoute.POST("/info", dashboard_route.ProductInfo)
-		protectedProductsRoute.POST("/access-keys", dashboard_route.ProductAccessKeys)
+		protectedProductsRoute.GET("/info", dashboard_route.ProductInfo)
+		protectedProductsRoute.GET("/access-keys", dashboard_route.ProductAccessKeys)
+		protectedProductsRoute.DELETE("/delete", dashboard_route.DeleteProduct)
 	}
 }

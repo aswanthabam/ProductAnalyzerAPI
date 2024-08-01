@@ -1,6 +1,8 @@
 package dashboard_route
 
 import (
+	"log"
+	deletion_db "productanalyzer/api/db/deletion"
 	products_db "productanalyzer/api/db/products"
 	user_db "productanalyzer/api/db/user"
 	api_error "productanalyzer/api/errors"
@@ -8,6 +10,8 @@ import (
 	response "productanalyzer/api/utils/response"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Create Product Request [POST]
@@ -139,4 +143,61 @@ func ProductAccessKeys(c *gin.Context) {
 		})
 	}
 	response.SendSuccessResponse(c, "Product access keys", keys, nil)
+}
+
+// Delete Product Request [POST]
+func DeleteProduct(c *gin.Context) {
+	usr, exists := c.Get("user")
+	if !exists {
+		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
+		return
+	}
+	user := usr.(*user_db.User)
+	var params DeleteProductRequest
+	if err := c.ShouldBind(&params); err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	if params.Type == deletion_db.DELETION_REQUEST_TYPE_INITIAL {
+		product, err := products_db.GetProductByProductIDAUserID(params.InstanceId, user.ID)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		}
+		id, err := deletion_db.AddToDeletionList(product.ID, deletion_db.DELETION_TYPE_PRODUCT)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		}
+		response.SendSuccessResponse(c, "Product deletion request initiated", bson.M{"instance_id": id.Hex()}, nil)
+	} else if params.Type == deletion_db.DELETION_REQUEST_TYPE_CONFIRM {
+		objectId, err2 := primitive.ObjectIDFromHex(params.InstanceId)
+		if err2 != nil {
+			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Instance ID", 400, "The given instance id is invalid"))
+			return
+		}
+		deletion, err := deletion_db.GetFromDeletionList(objectId)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		}
+		if deletion.Type != deletion_db.DELETION_TYPE_PRODUCT {
+			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Instance ID", 400, "The given instance id is invalid"))
+			return
+		}
+		log.Print(deletion.ObjectID)
+		product, err := products_db.GetProductByID(deletion.ObjectID)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		}
+		err = products_db.DeleteProduct(product.ID)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		}
+		response.SendSuccessResponse(c, "Product deleted successfully", nil, nil)
+	} else {
+		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Request Type", 400, "The given request type is invalid"))
+	}
 }
