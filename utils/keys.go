@@ -3,10 +3,9 @@ package utils
 import (
 	"crypto/rand"
 	"encoding/base64"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
+// GenerateAPIKey generates a random API key and encodes it to base64
 func GenerateAPIKey() (string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
@@ -14,12 +13,4 @@ func GenerateAPIKey() (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(b), nil
-}
-
-func HashAPIKey(key string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hash), nil
 }

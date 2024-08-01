@@ -3,7 +3,8 @@ package products_db
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
 const (
-	PRODUCT_ACCESS_KEY_SCOPE = "all"
+	PRODUCT_ACCESS_KEY_SCOPE_ALL   = "all"
+	PRODUCT_ACCESS_KEY_SCOPE_VISIT = "visit"
 )
 
 type Product struct {
@@ -62,6 +63,7 @@ type ProductActivity struct {
 }
 
 type ProductAccessKey struct {
-	AccessKey string `json:"access_key"` // access key of the product
-	Scope     string `json:"scope"`      // scope of the access key
+	AccessKey string             `json:"access_key"` // access key of the product
+	Scope     string             `json:"scope"`      // scope of the access key
+	CreatedAt primitive.DateTime `json:"created_at"` // time at which the access key was created
 }

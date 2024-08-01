@@ -16,7 +16,7 @@ import (
 func InsertUser(usr *User) (primitive.ObjectID, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	usr.CreatedAt = primitive.NewDateTimeFromTime(time.Now().UTC())
+	usr.CreatedAt = utils.GetCurrentTime()
 	result, err := db.Connection.User.InsertOne(ctx, usr)
 	if err != nil {
 		if db.IsDuplicateKeyError(err) {
@@ -38,7 +38,7 @@ func CreateOTP(userId primitive.ObjectID, scope string) (string, *api_error.APIE
 		OTP:       code,
 		Scope:     scope,
 		Verified:  false,
-		CreatedAt: primitive.NewDateTimeFromTime(time.Now().UTC()),
+		CreatedAt: utils.GetCurrentTime(),
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

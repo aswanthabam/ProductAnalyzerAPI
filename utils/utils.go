@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -164,4 +165,17 @@ func GetDeviceType(r *http.Request) string {
 		}
 	}
 	return DEVICE_TYPE_DESKTOP
+}
+
+// Hashes the given string using bcrypt
+func HashString(key string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+func GetCurrentTime() primitive.DateTime {
+	return primitive.NewDateTimeFromTime(time.Now().UTC())
 }

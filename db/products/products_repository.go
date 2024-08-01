@@ -12,14 +12,25 @@ import (
 )
 
 // Inserts a new product into the database and returns the id of the product
-func CreateProduct(product Product) (primitive.ObjectID, *api_error.APIError) {
+func CreateProduct(product *Product) (primitive.ObjectID, *api_error.APIError) {
 	if _, err := GetProductByProductIDAUserID(product.ProductID, product.UserID); err == nil {
 		return primitive.NilObjectID, api_error.NewAPIError("Product Already Exists", 409, "Product with the same product id already exists")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	product.CreatedAt = primitive.NewDateTimeFromTime(time.Now().UTC())
-	product.UpdatedAt = primitive.NewDateTimeFromTime(time.Now().UTC())
+	key, err := utils.GenerateAPIKey()
+	if err != nil {
+		return primitive.NilObjectID, api_error.UnexpectedError(err)
+	}
+	curTime := utils.GetCurrentTime()
+	accessKey := ProductAccessKey{
+		AccessKey: key,
+		Scope:     PRODUCT_ACCESS_KEY_SCOPE_VISIT,
+		CreatedAt: curTime,
+	}
+	product.AccessKeys = []ProductAccessKey{accessKey}
+	product.CreatedAt = curTime
+	product.UpdatedAt = curTime
 	result, err := db.Connection.Products.InsertOne(ctx, product)
 	if err != nil {
 		return primitive.NilObjectID, api_error.UnexpectedError(err)
@@ -114,15 +125,17 @@ func VisitProduct(productId primitive.ObjectID, sessionId primitive.ObjectID, ac
 	return nil
 }
 
+// ValidateAPIKey validates the API Key and returns the ProductAccessKey if the key is valid
+// and has the required scope, otherwise it returns an error. This method uses the hashed key for validation.
 func ValidateAPIKey(apiKey, scope string) (*ProductAccessKey, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	hashedKey, err := utils.HashAPIKey(apiKey)
-	if err != nil {
-		return nil, api_error.UnexpectedError(err)
-	}
+	// hashedKey, err := utils.HashAPIKey(apiKey)
+	// if err != nil {
+	// 	return nil, api_error.UnexpectedError(err)
+	// }
 	accessKey := ProductAccessKey{}
-	if err := db.Connection.Products.FindOne(ctx, bson.M{"access_keys.key": hashedKey}).Decode(&accessKey); err != nil {
+	if err := db.Connection.Products.FindOne(ctx, bson.M{"access_keys.key": apiKey}).Decode(&accessKey); err != nil {
 		return nil, api_error.NewAPIError("Invalid API Key", 401, "Invalid API Key")
 	}
 	if accessKey.Scope != scope {

@@ -53,7 +53,7 @@ func SendSuccessResponse(cn *gin.Context, message string, data interface{}, stat
 	}
 	cn.JSON(*statusCode, gin.H{
 		"status":  "success",
-		"message": message,
 		"data":    data,
+		"message": message,
 	})
 }

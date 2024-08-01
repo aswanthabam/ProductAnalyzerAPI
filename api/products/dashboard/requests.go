@@ -6,3 +6,16 @@ type CreateProductRequest struct {
 	BaseUrl     string `form:"base_url" binding:"required,url"`
 	ProductID   string `form:"product_id" binding:"required,min=3,max=50"`
 }
+
+type CreateAccessKeyRequest struct {
+	ProductID string `form:"product_id" binding:"required"`
+	Scope     string `form:"scope" binding:"required"`
+}
+
+type ProductInfoRequest struct {
+	ProductID string `form:"product_id" binding:"required"`
+}
+
+type ProductAccessKeysRequest struct {
+	ProductID string `form:"product_id" binding:"required"`
+}
