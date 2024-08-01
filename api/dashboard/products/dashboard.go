@@ -1,4 +1,4 @@
-package dashboard_route
+package products_route
 
 import (
 	"log"

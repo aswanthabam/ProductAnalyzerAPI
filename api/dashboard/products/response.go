@@ -1,4 +1,4 @@
-package dashboard_route
+package products_route
 
 type CreateProductResponse struct {
 	ProductId string `json:"product_id"`

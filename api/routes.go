@@ -1,7 +1,7 @@
 package api
 
 import (
-	"productanalyzer/api/api/products"
+	"productanalyzer/api/api/dashboard"
 	"productanalyzer/api/api/user"
 
 	"github.com/gin-gonic/gin"
@@ -9,8 +9,8 @@ import (
 
 func SetupRoutes(router *gin.RouterGroup) {
 	userRoutes := router.Group("/user")
-	productsRoute := router.Group("/products")
+	dashboardRoutes := router.Group("/dashboard")
 
 	user.SetupRoutes(userRoutes)
-	products.SetupRoutes(productsRoute)
+	dashboard.SetupRoutes(dashboardRoutes)
 }

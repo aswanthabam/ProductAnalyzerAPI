@@ -1,4 +1,4 @@
-package dashboard_route
+package products_route
 
 type CreateProductRequest struct {
 	Name        string `form:"name" binding:"required,min=3,max=50"`
