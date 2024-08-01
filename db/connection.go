@@ -16,12 +16,15 @@ var Connection DBConnection
 var mu sync.Mutex
 
 type DBConnection struct {
-	Client   *mongo.Client     // Connection to MongoDB
-	Database *mongo.Database   // Database instance
-	User     *mongo.Collection // Collection of users
-	Visits   *mongo.Collection // Collection of visits
-	Products *mongo.Collection // Collection of products
-	OTP      *mongo.Collection // Collection of OTPs
+	Client             *mongo.Client     // Connection to MongoDB
+	Database           *mongo.Database   // Database instance
+	User               *mongo.Collection // Collection of users
+	Visits             *mongo.Collection // Collection of visits
+	Products           *mongo.Collection // Collection of products
+	OTP                *mongo.Collection // Collection of OTPs
+	ProductVisits      *mongo.Collection // Collection of product visits
+	Location           *mongo.Collection // Collection of locations
+	ProductUserSession *mongo.Collection // Collection of user sessions
 }
 
 /*
@@ -56,6 +59,9 @@ func (conn *DBConnection) FetchCollections() error {
 	conn.Visits = conn.collection("visits")
 	conn.Products = conn.collection("products")
 	conn.OTP = conn.collection("otp")
+	conn.ProductVisits = conn.collection("product_visits")
+	conn.Location = conn.collection("locations")
+	conn.ProductUserSession = conn.collection("product_user_sessions")
 	return nil
 }
 

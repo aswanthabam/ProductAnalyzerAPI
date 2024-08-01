@@ -8,9 +8,9 @@ import (
 )
 
 func SetupRoutes(router *gin.RouterGroup) {
-	productsRoute := router.Group("/products")
+	dashboardRoute := router.Group("/dashboard")
 	{
-		protectedProductsRoute := productsRoute.Group("/")
+		protectedProductsRoute := dashboardRoute.Group("/")
 		protectedProductsRoute.Use(middlewares.AuthMiddleware(false))
 
 		protectedProductsRoute.POST("/create", dashboard_route.CreateProduct)

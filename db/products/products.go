@@ -7,48 +7,49 @@ const (
 )
 
 type Product struct {
-	ID          primitive.ObjectID `json:"id"`          // primary key
-	Name        string             `json:"name"`        // name of the product
-	Description string             `json:"description"` // description of the product
-	BaseUrl     string             `json:"base_url"`    // base url of the product, the domain
-	ProductID   string             `json:"product_id"`  // product id of the product, used for identifying the product when requesting
-	AccessKeys  []ProductAccessKey `json:"access_keys"` // access keys created for the product
-	CreatedAt   primitive.DateTime `json:"created_at"`  // time at which the product was created
-	UpdatedAt   primitive.DateTime `json:"updated_at"`  // time at which the product was last updated
+	ID          primitive.ObjectID `bson:"_id,omitempty"` // primary key
+	Name        string             `bson:"name"`          // name of the product
+	Description string             `bson:"description"`   // description of the product
+	BaseUrl     string             `bson:"base_url"`      // base url of the product, the domain
+	ProductID   string             `bson:"product_id"`    // product id of the product, used for identifying the product when requesting
+	UserID      primitive.ObjectID `bson:"user_id"`       // user id of the user who created the product
+	AccessKeys  []ProductAccessKey `bson:"access_keys"`   // access keys created for the product
+	CreatedAt   primitive.DateTime `bson:"created_at"`    // time at which the product was created
+	UpdatedAt   primitive.DateTime `bson:"updated_at"`    // time at which the product was last updated
 }
 
-type ProductVist struct {
-	ID         primitive.ObjectID `json:"id"`         // primary key
-	ProductID  string             `json:"product_id"` // product id of the product
-	SessionID  string             `json:"session_id"` // session id of the user
-	Activities []ProductActivity  `json:"activities"` // activities of the user
+type ProductVisit struct {
+	ID         primitive.ObjectID `bson:"_id,omitempty"` // primary key
+	ProductID  primitive.ObjectID `bson:"product_id"`    // product id of the product
+	SessionID  primitive.ObjectID `bson:"session_id"`    // session id of the user
+	Refferer   string             `bson:"refferer"`      // refferer of the user
+	Activities []ProductActivity  `bson:"activities"`    // activities of the user
 }
 
 type Location struct {
-	ID       primitive.ObjectID `json:"id"`        // primary key
-	Hash     string             `json:"hash"`      // hash of the location, used for identifying the location and finding if the location changed
-	City     string             `json:"city"`      // city of the location
-	Region   string             `json:"region"`    // region of the location
-	Country  string             `json:"country"`   // country of the location
-	ZipCode  string             `json:"zip_code"`  // zip code of the location
-	TimeZone string             `json:"time_zone"` // time zone of the location
+	ID       primitive.ObjectID `bson:"_id,omitempty"` // primary key
+	Hash     string             `bson:"hash"`          // hash of the location, used for identifying the location and finding if the location changed
+	City     string             `bson:"city"`          // city of the location
+	Region   string             `bson:"region"`        // region of the location
+	Country  string             `bson:"country"`       // country of the location
+	ZipCode  string             `bson:"zip_code"`      // zip code of the location
+	TimeZone string             `bson:"time_zone"`     // time zone of the location
 }
 
 type ProductUserSession struct {
-	ID        primitive.ObjectID `json:"id"`          // primary key
-	Hash      string             `json:"hash"`        // hash of the session, used for identifying the session and finding if the session changed
-	ProductID string             `json:"product_id"`  // product id of the product
-	IPAddress string             `json:"ip_address"`  // ip address of the user
-	Location  primitive.ObjectID `json:"location_id"` // location id of the user
-	Lat       float64            `json:"lat"`         // latitude of the location
-	Lon       float64            `json:"lon"`         // longitude of the location
-	UserAgent string             `json:"user_agent"`  // user agent of the user
-	Mobile    bool               `json:"mobile"`      // whether the user is using a mobile device
-	Bot       bool               `json:"bot"`         // whether the user is a bot
-	Proxy     bool               `json:"proxy"`       // whether the user is using a proxy
-	Isp       string             `json:"isp"`         // internet service provider of the user
-	Refferer  string             `json:"refferer"`    // refferer of the user
-	CreatedAt primitive.DateTime `json:"created_at"`  // time at which the session was created
+	ID        primitive.ObjectID `bson:"_id,omitempty"` // primary key
+	Hash      string             `bson:"hash"`          // hash of the session, used for identifying the session and finding if the session changed
+	ProductID string             `bson:"product_id"`    // product id of the product
+	IPAddress string             `bson:"ip_address"`    // ip address of the user
+	Location  primitive.ObjectID `bson:"location_id"`   // location id of the user
+	Lat       float64            `bson:"lat"`           // latitude of the location
+	Lon       float64            `bson:"lon"`           // longitude of the location
+	UserAgent string             `bson:"user_agent"`    // user agent of the user
+	Mobile    bool               `bson:"mobile"`        // whether the user is using a mobile device
+	Bot       bool               `bson:"bot"`           // whether the user is a bot
+	Proxy     bool               `bson:"proxy"`         // whether the user is using a proxy
+	Isp       string             `bson:"isp"`           // internet service provider of the user
+	CreatedAt primitive.DateTime `bson:"created_at"`    // time at which the session was created
 }
 
 /* INDIRECT TYPES */
