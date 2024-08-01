@@ -2,7 +2,6 @@ package products_route
 
 type CreateProductResponse struct {
 	ProductId string `json:"product_id"`
-	AccessKey string `json:"access_key"`
 }
 
 type CreateAccessKeyResponse struct {
@@ -12,6 +11,7 @@ type CreateAccessKeyResponse struct {
 }
 
 type ProductInfoResponse struct {
+	ID          string `json:"id"` // primary key
 	ProductID   string `json:"product_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`

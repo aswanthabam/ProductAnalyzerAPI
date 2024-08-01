@@ -6,7 +6,6 @@ import (
 	products_db "productanalyzer/api/db/products"
 	user_db "productanalyzer/api/db/user"
 	api_error "productanalyzer/api/errors"
-	"productanalyzer/api/utils"
 	response "productanalyzer/api/utils/response"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +31,6 @@ func CreateProduct(c *gin.Context) {
 		Description: params.Description,
 		BaseUrl:     params.BaseUrl,
 		ProductID:   params.ProductID,
-		AccessKeys:  []products_db.ProductAccessKey{},
 		UserID:      user.ID,
 	}
 	productId, err := products_db.CreateProduct(&product)
@@ -42,7 +40,6 @@ func CreateProduct(c *gin.Context) {
 	}
 	response.SendSuccessResponse(c, "Product created successfully", CreateProductResponse{
 		ProductId: productId.Hex(),
-		AccessKey: product.AccessKeys[0].AccessKey,
 	}, nil)
 }
 
@@ -64,28 +61,19 @@ func CreateAccessKey(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	key, err2 := utils.GenerateAPIKey()
-	if err2 != nil {
-		response.SendFailureResponse(c, api_error.UnexpectedError(err))
+	key, err := products_db.CreateProductAccessKey(product.ID, params.Scope)
+	if err != nil {
+		response.SendFailureResponse(c, err)
 		return
 	}
-	if params.Scope != products_db.PRODUCT_ACCESS_KEY_SCOPE_VISIT && params.Scope != products_db.PRODUCT_ACCESS_KEY_SCOPE_ALL {
-		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Scope", 400, "The given scope is invalid"))
-		return
-	}
-	accessKey := products_db.ProductAccessKey{
-		AccessKey: key,
-		Scope:     params.Scope,
-		CreatedAt: utils.GetCurrentTime(),
-	}
-	product.AccessKeys = append(product.AccessKeys, accessKey)
+	product.AccessKeys = append(product.AccessKeys, key.ID)
 	err = products_db.UpdateProduct(*product)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
 	response.SendSuccessResponse(c, "Access Key created successfully", CreateAccessKeyResponse{
-		AccessKey: key,
+		AccessKey: key.AccessKey,
 		ProductID: product.ProductID,
 		Scope:     params.Scope,
 	}, nil)
@@ -110,6 +98,7 @@ func ProductInfo(c *gin.Context) {
 		return
 	}
 	response.SendSuccessResponse(c, "Product information", ProductInfoResponse{
+		ID:          product.ID.Hex(),
 		Name:        product.Name,
 		Description: product.Description,
 		BaseUrl:     product.BaseUrl,
@@ -134,8 +123,13 @@ func ProductAccessKeys(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
+	accessKeys, err := products_db.GetProductAccessKeys(product.ID)
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
 	keys := []ProductAccessKeyResponse{}
-	for _, key := range product.AccessKeys {
+	for _, key := range *accessKeys {
 		keys = append(keys, ProductAccessKeyResponse{
 			AccessKey: key.AccessKey,
 			Scope:     key.Scope,

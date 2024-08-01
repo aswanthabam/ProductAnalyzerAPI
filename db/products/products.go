@@ -8,15 +8,15 @@ const (
 )
 
 type Product struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty"` // primary key
-	Name        string             `bson:"name"`          // name of the product
-	Description string             `bson:"description"`   // description of the product
-	BaseUrl     string             `bson:"base_url"`      // base url of the product, the domain
-	ProductID   string             `bson:"product_id"`    // product id of the product, used for identifying the product when requesting
-	UserID      primitive.ObjectID `bson:"user_id"`       // user id of the user who created the product
-	AccessKeys  []ProductAccessKey `bson:"access_keys"`   // access keys created for the product
-	CreatedAt   primitive.DateTime `bson:"created_at"`    // time at which the product was created
-	UpdatedAt   primitive.DateTime `bson:"updated_at"`    // time at which the product was last updated
+	ID          primitive.ObjectID   `bson:"_id,omitempty"` // primary key
+	Name        string               `bson:"name"`          // name of the product
+	Description string               `bson:"description"`   // description of the product
+	BaseUrl     string               `bson:"base_url"`      // base url of the product, the domain
+	ProductID   string               `bson:"product_id"`    // product id of the product, used for identifying the product when requesting
+	UserID      primitive.ObjectID   `bson:"user_id"`       // user id of the user who created the product
+	AccessKeys  []primitive.ObjectID `bson:"access_keys"`   // access keys created for the product
+	CreatedAt   primitive.DateTime   `bson:"created_at"`    // time at which the product was created
+	UpdatedAt   primitive.DateTime   `bson:"updated_at"`    // time at which the product was last updated
 }
 
 type ProductVisit struct {
@@ -53,6 +53,14 @@ type ProductUserSession struct {
 	CreatedAt primitive.DateTime `bson:"created_at"`    // time at which the session was created
 }
 
+type ProductAccessKey struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty"` // primary key
+	ProductID primitive.ObjectID `bson:"product_id"`    // product id of the product
+	AccessKey string             `bson:"access_key"`    // access key of the product
+	Scope     string             `bson:"scope"`         // scope of the access key
+	CreatedAt primitive.DateTime `bson:"created_at"`    // time at which the access key was created
+}
+
 /* INDIRECT TYPES */
 
 type ProductActivity struct {
@@ -60,10 +68,4 @@ type ProductActivity struct {
 	Page   string             `json:"page"`   // page the user accessed
 	Method string             `json:"method"` // method used to access the page, GET, POST, etc
 	Time   primitive.DateTime `json:"time"`   // time at which the user accessed the page
-}
-
-type ProductAccessKey struct {
-	AccessKey string             `json:"access_key"` // access key of the product
-	Scope     string             `json:"scope"`      // scope of the access key
-	CreatedAt primitive.DateTime `json:"created_at"` // time at which the access key was created
 }

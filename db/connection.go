@@ -26,6 +26,7 @@ type DBConnection struct {
 	Location           *mongo.Collection // Collection of locations
 	ProductUserSession *mongo.Collection // Collection of user sessions
 	DeletionList       *mongo.Collection // Collection of deletion list
+	ProductAccessKey   *mongo.Collection // Collection of product access keys
 }
 
 /*
@@ -64,6 +65,7 @@ func (conn *DBConnection) FetchCollections() error {
 	conn.Location = conn.collection("locations")
 	conn.ProductUserSession = conn.collection("product_user_sessions")
 	conn.DeletionList = conn.collection("deletion_list")
+	conn.ProductAccessKey = conn.collection("product_access_keys")
 	return nil
 }
 
@@ -89,6 +91,9 @@ Initialize the database by creating indexes and other necessary operations.
 */
 func (conn *DBConnection) Initialize() error {
 	createUniqueIndex(conn.User, "email")
+	createUniqueIndex(conn.ProductUserSession, "hash")
+	createUniqueIndex(conn.ProductAccessKey, "access_key")
+	createUniqueIndex(conn.Location, "hash")
 	return nil
 }
 
