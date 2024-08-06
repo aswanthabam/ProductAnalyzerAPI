@@ -5,12 +5,14 @@ import (
 	"productanalyzer/api/api"
 	"productanalyzer/api/config"
 	"productanalyzer/api/db"
+	"productanalyzer/api/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRouter() *gin.Engine {
 	router := gin.Default()
+	router.Use(middlewares.BotDetectionMiddleware())
 	apiRouter := router.Group("/api")
 	api.SetupRoutes(apiRouter)
 	return router

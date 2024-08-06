@@ -46,10 +46,12 @@ type ProductUserSession struct {
 	Lat       float64            `bson:"lat"`           // latitude of the location
 	Lon       float64            `bson:"lon"`           // longitude of the location
 	UserAgent string             `bson:"user_agent"`    // user agent of the user
-	Mobile    bool               `bson:"mobile"`        // whether the user is using a mobile device
-	Bot       bool               `bson:"bot"`           // whether the user is a bot
 	Proxy     bool               `bson:"proxy"`         // whether the user is using a proxy
 	Isp       string             `bson:"isp"`           // internet service provider of the user
+	Device    string             `bson:"device"`        // device type of the user, mobile, tablet, desktop
+	Os        string             `bson:"os"`            // operating system of the user
+	Browser   string             `bson:"browser"`       // browser of the user
+	Bot       bool               `bson:"bot"`           // whether the user is a bot
 	CreatedAt primitive.DateTime `bson:"created_at"`    // time at which the session was created
 }
 

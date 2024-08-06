@@ -112,29 +112,33 @@ func DeleteProduct(productId primitive.ObjectID) *api_error.APIError {
 // VisitProduct visits a product and logs the activity,
 // If a visit exists with the given session, it appends the activity to the existing visit,
 // otherwise it creates a new visit with the activity.
-func VisitProduct(productId primitive.ObjectID, sessionId primitive.ObjectID, activity ProductActivity) *api_error.APIError {
+func VisitProduct(productId primitive.ObjectID, sessionId primitive.ObjectID, activity ProductActivity, refferer string) (primitive.ObjectID, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	visit := ProductVisit{}
-	err := db.Connection.ProductVisits.FindOne(ctx, bson.M{"session_id": sessionId}).Decode(&visit)
+	err := db.Connection.ProductVisits.FindOne(ctx, bson.M{"session_id": sessionId, "product_id": productId}).Decode(&visit)
 	if err != nil {
 		visit = ProductVisit{
 			ProductID: productId,
 			SessionID: sessionId,
-			Refferer:  "",
+			Refferer:  refferer,
 			Activities: []ProductActivity{
 				activity,
 			},
 		}
-		_, err = db.Connection.ProductVisits.InsertOne(ctx, visit)
+		id, err := db.Connection.ProductVisits.InsertOne(ctx, visit)
+		if err != nil {
+			return primitive.NilObjectID, api_error.UnexpectedError(err)
+		}
+		return id.InsertedID.(primitive.ObjectID), nil
 	} else {
 		visit.Activities = append(visit.Activities, activity)
-		_, err = db.Connection.ProductVisits.UpdateOne(ctx, bson.M{"session_id": sessionId}, bson.M{"$set": bson.M{"activities": visit.Activities}})
+		_, err = db.Connection.ProductVisits.UpdateOne(ctx, bson.M{"_id": visit.ID}, bson.M{"$set": bson.M{"activities": visit.Activities}})
+		if err != nil {
+			return primitive.NilObjectID, api_error.UnexpectedError(err)
+		}
+		return visit.ID, nil
 	}
-	if err != nil {
-		return api_error.UnexpectedError(err)
-	}
-	return nil
 }
 
 // ValidateAPIKey validates the API Key and returns the ProductAccessKey if the key is valid
@@ -180,4 +184,72 @@ func GetProductByAccessKeyAndProductID(apiKey string, productId string) (*Produc
 		return nil, api_error.NewAPIError("Product Not Found", 404, "Product not found")
 	}
 	return &product, nil
+}
+
+/* SAVE METHODS */
+
+func (lc Location) Save() (primitive.ObjectID, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if !lc.ID.IsZero() {
+		_, err := db.Connection.Location.UpdateOne(ctx, bson.M{"_id": lc.ID}, bson.M{"$set": lc})
+		return primitive.NilObjectID, err
+	}
+	id, err := db.Connection.Location.InsertOne(ctx, lc)
+	return id.InsertedID.(primitive.ObjectID), err
+}
+
+func (ps ProductUserSession) Save() (primitive.ObjectID, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if !ps.ID.IsZero() {
+		_, err := db.Connection.ProductUserSession.UpdateOne(ctx, bson.M{"_id": ps.ID}, bson.M{"$set": ps})
+		return primitive.NilObjectID, err
+	}
+	ps.CreatedAt = utils.GetCurrentTime()
+	id, err := db.Connection.ProductUserSession.InsertOne(ctx, ps)
+	return id.InsertedID.(primitive.ObjectID), err
+}
+
+func (pv ProductVisit) Save() (primitive.ObjectID, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if !pv.ID.IsZero() {
+		_, err := db.Connection.ProductVisits.UpdateOne(ctx, bson.M{"_id": pv.ID}, bson.M{"$set": pv})
+		return primitive.NilObjectID, err
+	}
+	id, err := db.Connection.ProductVisits.InsertOne(ctx, pv)
+	return id.InsertedID.(primitive.ObjectID), err
+}
+
+func (lc Location) ExistsHash() (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	count, err := db.Connection.Location.CountDocuments(ctx, bson.M{"hash": lc.Hash})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (ps ProductUserSession) ExistsHash() (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	count, err := db.Connection.ProductUserSession.CountDocuments(ctx, bson.M{"hash": ps.Hash})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (lc *Location) GetByHash() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return db.Connection.Location.FindOne(ctx, bson.M{"hash": lc.Hash}).Decode(lc)
+}
+
+func (ps *ProductUserSession) GetByHash() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return db.Connection.ProductUserSession.FindOne(ctx, bson.M{"hash": ps.Hash}).Decode(ps)
 }

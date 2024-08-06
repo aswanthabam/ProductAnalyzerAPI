@@ -2,11 +2,14 @@ package utils
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net/http"
 	"productanalyzer/api/config"
 	api_error "productanalyzer/api/errors"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -178,4 +181,29 @@ func HashString(key string) (string, error) {
 
 func GetCurrentTime() primitive.DateTime {
 	return primitive.NewDateTimeFromTime(time.Now().UTC())
+}
+
+// hashStruct generates a hash of any struct based on its field values
+func HashStruct(v interface{}) (string, error) {
+	val := reflect.ValueOf(v)
+	if val.Kind() != reflect.Struct {
+		return "", fmt.Errorf("expected a struct, got %s", val.Kind())
+	}
+
+	var fieldValues []string
+	// _ := val.Type()
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		if field.CanInterface() {
+			fieldValue := fmt.Sprint(field.Interface())
+			fieldValues = append(fieldValues, fieldValue)
+		}
+	}
+
+	str := strings.Join(fieldValues, "|")
+	hash := sha256.New()
+	hash.Write([]byte(str))
+	hashedBytes := hash.Sum(nil)
+	hashedString := hex.EncodeToString(hashedBytes)
+	return hashedString, nil
 }
