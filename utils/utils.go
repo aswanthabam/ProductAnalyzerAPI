@@ -180,7 +180,11 @@ func HashString(key string) (string, error) {
 }
 
 func GetCurrentTime() primitive.DateTime {
-	return primitive.NewDateTimeFromTime(time.Now().UTC())
+	return primitive.NewDateTimeFromTime(GetUTCTime())
+}
+
+func GetUTCTime() time.Time {
+	return time.Now().UTC()
 }
 
 // hashStruct generates a hash of any struct based on its field values

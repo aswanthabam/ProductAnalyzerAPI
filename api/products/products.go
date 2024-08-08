@@ -1,13 +1,14 @@
 package products
 
 import (
-	"fmt"
 	products_db "productanalyzer/api/db/products"
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
 	response "productanalyzer/api/utils/response"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func VisitProduct(c *gin.Context) {
@@ -21,79 +22,100 @@ func VisitProduct(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
+	var session *products_db.ProductUserSession
+	if params.SessionId != "" {
+		sessionId, err := primitive.ObjectIDFromHex(params.SessionId)
+		if err != nil {
+			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Session ID", 400, "Invalid Session ID"))
+			return
+		}
+		session, err = products_db.GetSessionById(sessionId)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		}
+
+	}
 	clientIp, error := utils.GetIPAddress(c)
 	if error != nil {
 		response.SendFailureResponse(c, error)
 		return
 	}
-	info, err := utils.GetIPAddressInfo(clientIp)
-	if err != nil {
-		response.SendFailureResponse(c, err)
+	if session != nil && session.IPAddress != clientIp {
+		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Session ID", 400, "Invalid Session ID, Session is not of the current user"))
 		return
 	}
-	userAgent := c.GetHeader("User-Agent")
-	ua := utils.GetUserAgentDetails(userAgent)
-	// referer := c.GetHeader("Referer")
-	location := products_db.Location{
-		City:     info.City,
-		Region:   info.Region,
-		Country:  info.Country,
-		ZipCode:  info.Zip,
-		TimeZone: info.Timezone,
-	}
-	if location.Hash, err = utils.HashStruct(location); err != nil {
-		response.SendFailureResponse(c, err)
-		return
-	}
-	if exists, err := location.ExistsHash(); err != nil {
-		response.SendFailureResponse(c, err)
-		return
-	} else if exists {
-		if err := location.GetByHash(); err != nil {
-			response.SendFailureResponse(c, err)
-			return
-		}
-	} else {
-		fmt.Println("Location does not exist")
-		if location.ID, err = location.Save(); err != nil {
-			response.SendFailureResponse(c, err)
-			return
-		}
-	}
-
 	product := prod.(*products_db.Product)
-	session := products_db.ProductUserSession{
-		ProductID: product.ID.Hex(),
-		IPAddress: clientIp,
-		Location:  location.ID,
-		Lat:       info.Lat,
-		Lon:       info.Lon,
-		UserAgent: userAgent,
-		Proxy:     info.Proxy,
-		Isp:       info.ISP,
-		Device:    ua.DeviceType,
-		Os:        ua.OS,
-		Browser:   ua.Browser,
-		Bot:       c.GetBool("isBot"),
-	}
-	if session.Hash, err = utils.HashStruct(session); err != nil {
-		response.SendFailureResponse(c, err)
-		return
-	}
-
-	if exists, err := session.ExistsHash(); err != nil {
-		response.SendFailureResponse(c, err)
-		return
-	} else if exists {
-		if err := session.GetByHash(); err != nil {
+	if session == nil {
+		info, err := utils.GetIPAddressInfo(clientIp)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		}
+		userAgent := c.GetHeader("User-Agent")
+		ua := utils.GetUserAgentDetails(userAgent)
+		// referer := c.GetHeader("Referer")
+		location := products_db.Location{
+			City:     info.City,
+			Region:   info.Region,
+			Country:  info.Country,
+			ZipCode:  info.Zip,
+			TimeZone: info.Timezone,
+		}
+		if location.Hash, err = utils.HashStruct(location); err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		}
+		if exists, err := location.ExistsHash(); err != nil {
+			response.SendFailureResponse(c, err)
+			return
+		} else if exists {
+			if err := location.GetByHash(); err != nil {
+				response.SendFailureResponse(c, err)
+				return
+			}
+		} else {
+			if err = location.Save(); err != nil {
+				response.SendFailureResponse(c, err)
+				return
+			}
+		}
+		session = &products_db.ProductUserSession{
+			ProductID: product.ID.Hex(),
+			IPAddress: clientIp,
+			Location:  location.ID,
+			Lat:       info.Lat,
+			Lon:       info.Lon,
+			UserAgent: userAgent,
+			Proxy:     info.Proxy,
+			Isp:       info.ISP,
+			Device:    ua.DeviceType,
+			Os:        ua.OS,
+			Browser:   ua.Browser,
+			Bot:       c.GetBool("isBot"),
+		}
+		if err = session.HashSession(); err != nil {
 			response.SendFailureResponse(c, err)
 			return
 		}
 
-	} else {
-		if session.ID, err = session.Save(); err != nil {
+		if exists, err := session.GetByHash(); err != nil {
 			response.SendFailureResponse(c, err)
 			return
+		} else if exists {
+			expireTime := session.UpdatedAt.Time().Add(time.Minute * 2).UTC()
+			if expireTime.Before(utils.GetUTCTime()) {
+				session.ID = primitive.NilObjectID
+				if err = session.Save(); err != nil {
+					response.SendFailureResponse(c, err)
+					return
+				}
+			}
+		} else {
+			if err = session.Save(); err != nil {
+				response.SendFailureResponse(c, err)
+				return
+			}
 		}
 	}
 	activity := products_db.ProductActivity{
@@ -102,14 +124,13 @@ func VisitProduct(c *gin.Context) {
 		Method: params.Method,
 		Time:   utils.GetCurrentTime(),
 	}
-	visitId, err2 := products_db.VisitProduct(product.ID, session.ID, activity, c.Request.Referer())
-	if err2 != nil {
+	err := session.VisitProduct(activity)
+	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
 	response.SendSuccessResponse(c, "LOL", ProductVisitResponse{
-		VisitId:    visitId.Hex(),
 		SessionId:  session.ID.Hex(),
-		LocationId: location.ID.Hex(),
+		LocationId: session.Location.Hex(),
 	}, nil)
 }

@@ -10,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // Inserts a new product into the database and returns the id of the product
@@ -112,43 +113,35 @@ func DeleteProduct(productId primitive.ObjectID) *api_error.APIError {
 // VisitProduct visits a product and logs the activity,
 // If a visit exists with the given session, it appends the activity to the existing visit,
 // otherwise it creates a new visit with the activity.
-func VisitProduct(productId primitive.ObjectID, sessionId primitive.ObjectID, activity ProductActivity, refferer string) (primitive.ObjectID, *api_error.APIError) {
+func (ps *ProductUserSession) VisitProduct(activity ProductActivity) *api_error.APIError {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	visit := ProductVisit{}
-	err := db.Connection.ProductVisits.FindOne(ctx, bson.M{"session_id": sessionId, "product_id": productId}).Decode(&visit)
-	if err != nil {
-		visit = ProductVisit{
-			ProductID: productId,
-			SessionID: sessionId,
-			Refferer:  refferer,
-			Activities: []ProductActivity{
-				activity,
-			},
-		}
-		id, err := db.Connection.ProductVisits.InsertOne(ctx, visit)
-		if err != nil {
-			return primitive.NilObjectID, api_error.UnexpectedError(err)
-		}
-		return id.InsertedID.(primitive.ObjectID), nil
-	} else {
-		visit.Activities = append(visit.Activities, activity)
-		_, err = db.Connection.ProductVisits.UpdateOne(ctx, bson.M{"_id": visit.ID}, bson.M{"$set": bson.M{"activities": visit.Activities}})
-		if err != nil {
-			return primitive.NilObjectID, api_error.UnexpectedError(err)
-		}
-		return visit.ID, nil
+	if ps.ID.IsZero() {
+		return api_error.NewAPIError("Invalid Session", 400, "Invalid Session")
 	}
+	ps.Activities = append(ps.Activities, activity)
+	ps.UpdatedAt = utils.GetCurrentTime()
+	_, err := db.Connection.ProductUserSession.UpdateOne(ctx,
+		bson.M{"_id": ps.ID},
+		bson.M{
+			"$set": bson.M{
+				"activities": ps.Activities,
+				"updated_at": ps.UpdatedAt,
+			},
+		})
+	if err != nil {
+		return api_error.UnexpectedError(err)
+	}
+	return nil
 }
 
 // ValidateAPIKey validates the API Key and returns the ProductAccessKey if the key is valid
 // and has the required scope, otherwise it returns an error. This method uses the hashed key for validation.
-func ValidateAPIKey(productId primitive.ObjectID, apiKey, scope string) (*ProductAccessKey, *api_error.APIError) {
+func ValidateAPIKey(apiKey, scope string) (*ProductAccessKey, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	accessKey := ProductAccessKey{}
 	if err := db.Connection.ProductAccessKey.FindOne(ctx, bson.M{
-		"product_id": productId,
 		"access_key": apiKey,
 	}).Decode(&accessKey); err != nil {
 		log.Print(err)
@@ -186,40 +179,45 @@ func GetProductByAccessKeyAndProductID(apiKey string, productId string) (*Produc
 	return &product, nil
 }
 
+func GetSessionById(sessionId primitive.ObjectID) (*ProductUserSession, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	session := ProductUserSession{}
+	err := db.Connection.ProductUserSession.FindOne(ctx, bson.M{"_id": sessionId}).Decode(&session)
+	return &session, err
+}
+
 /* SAVE METHODS */
 
-func (lc Location) Save() (primitive.ObjectID, error) {
+func (lc *Location) Save() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if !lc.ID.IsZero() {
 		_, err := db.Connection.Location.UpdateOne(ctx, bson.M{"_id": lc.ID}, bson.M{"$set": lc})
-		return primitive.NilObjectID, err
+		return err
 	}
 	id, err := db.Connection.Location.InsertOne(ctx, lc)
-	return id.InsertedID.(primitive.ObjectID), err
+	if err != nil {
+		return err
+	}
+	lc.ID = id.InsertedID.(primitive.ObjectID)
+	return nil
 }
 
-func (ps ProductUserSession) Save() (primitive.ObjectID, error) {
+func (ps *ProductUserSession) Save() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if !ps.ID.IsZero() {
 		_, err := db.Connection.ProductUserSession.UpdateOne(ctx, bson.M{"_id": ps.ID}, bson.M{"$set": ps})
-		return primitive.NilObjectID, err
+		return err
 	}
 	ps.CreatedAt = utils.GetCurrentTime()
 	id, err := db.Connection.ProductUserSession.InsertOne(ctx, ps)
-	return id.InsertedID.(primitive.ObjectID), err
-}
-
-func (pv ProductVisit) Save() (primitive.ObjectID, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if !pv.ID.IsZero() {
-		_, err := db.Connection.ProductVisits.UpdateOne(ctx, bson.M{"_id": pv.ID}, bson.M{"$set": pv})
-		return primitive.NilObjectID, err
+	if err != nil {
+		return err
 	}
-	id, err := db.Connection.ProductVisits.InsertOne(ctx, pv)
-	return id.InsertedID.(primitive.ObjectID), err
+	ps.ID = id.InsertedID.(primitive.ObjectID)
+	return nil
 }
 
 func (lc Location) ExistsHash() (bool, error) {
@@ -248,8 +246,43 @@ func (lc *Location) GetByHash() error {
 	return db.Connection.Location.FindOne(ctx, bson.M{"hash": lc.Hash}).Decode(lc)
 }
 
-func (ps *ProductUserSession) GetByHash() error {
+func (ps *ProductUserSession) GetByHash() (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return db.Connection.ProductUserSession.FindOne(ctx, bson.M{"hash": ps.Hash}).Decode(ps)
+	err := db.Connection.ProductUserSession.FindOne(
+		ctx,
+		bson.M{"hash": ps.Hash},
+		options.FindOne().SetSort(bson.M{"created_at": -1}),
+	).Decode(ps)
+	if err != nil {
+		if err.Error() == "mongo: no documents in result" {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (ps *ProductUserSession) HashSession() error {
+	psCopy := ProductUserSession{
+		ProductID: ps.ProductID,
+		IPAddress: ps.IPAddress,
+		Location:  ps.Location,
+		Lat:       ps.Lat,
+		Lon:       ps.Lon,
+		UserAgent: ps.UserAgent,
+		Proxy:     ps.Proxy,
+		Isp:       ps.Isp,
+		Device:    ps.Device,
+		Os:        ps.Os,
+		Browser:   ps.Browser,
+		Bot:       ps.Bot,
+	}
+	hash, err := utils.HashStruct(psCopy)
+	if err != nil {
+		return err
+	}
+	ps.Hash = hash
+	return nil
 }

@@ -8,14 +8,9 @@ import (
 )
 
 func SetupRoutes(router *gin.RouterGroup) {
-	productsRoute := router.Group("/:product_id")
+	protectedProductsRoute := router.Group("/")
+	protectedProductsRoute.Use(middlewares.AccessKeyMiddleware(products_db.PRODUCT_ACCESS_KEY_SCOPE_VISIT, true))
 	{
-		protectedProductsRoute := productsRoute.Group("/")
-		protectedProductsRoute.Use(middlewares.AccessKeyMiddleware(products_db.PRODUCT_ACCESS_KEY_SCOPE_VISIT))
-
-		{
-			protectedProductsRoute.GET("/visit", VisitProduct)
-		}
-
+		protectedProductsRoute.GET("/log", VisitProduct)
 	}
 }

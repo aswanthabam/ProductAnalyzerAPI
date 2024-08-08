@@ -62,41 +62,33 @@ func AuthMiddleware(requireVerifiedEmail bool) gin.HandlerFunc {
 	}
 }
 
-func AccessKeyMiddleware(scope string) gin.HandlerFunc {
+func AccessKeyMiddleware(scope string, strictHeader bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authError := api_error.NewAPIError("Unauthorized", http.StatusUnauthorized, "Invalid API Key. Please provide a valid API Key in the X-API-Key header")
-		key := c.GetHeader("X-API-Key")
+		var key string
+		key = c.GetHeader("X-API-Key")
+		if !strictHeader && key == "" {
+			key = c.Query("api_key")
+		}
 		if key == "" {
 			response.SendFailureResponse(c, authError)
 			c.Abort()
 			return
 		}
-		product_id := c.Param("product_id")
-		if product_id == "" {
-			response.SendFailureResponse(c, api_error.UnexpectedError(nil))
-			c.Abort()
-			return
-		}
-		objectId, err2 := primitive.ObjectIDFromHex(product_id)
-		if err2 != nil {
-			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Product ID", http.StatusBadRequest, "Invalid Product ID"))
-			c.Abort()
-			return
-		}
-		product, err := products_db.GetProductByID(objectId)
-		if err != nil {
-			response.SendFailureResponse(c, err)
-			c.Abort()
-			return
-		}
-		c.Set("product", product)
-		accessKey, err := products_db.ValidateAPIKey(objectId, key, scope)
+		accessKey, err := products_db.ValidateAPIKey(key, scope)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			c.Abort()
 			return
 		}
 		c.Set("access_key", accessKey)
+		product, err := products_db.GetProductByID(accessKey.ProductID)
+		if err != nil {
+			response.SendFailureResponse(c, err)
+			c.Abort()
+			return
+		}
+		c.Set("product", product)
 		c.Next()
 	}
 }
