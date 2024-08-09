@@ -247,7 +247,6 @@ func VisitLog(c *gin.Context) {
 			continue
 		}
 		visits = append(visits, VisitLogEntry{
-			Type:          params.Unit,
 			CreatedAt:     log.CreatedAt.Time().UTC().String(),
 			UpdatedAt:     log.UpdatedAt.Time().UTC().String(),
 			ActivityCount: int64(log.ActivityCount),
@@ -256,6 +255,7 @@ func VisitLog(c *gin.Context) {
 		})
 	}
 	response.SendSuccessResponse(c, "Visit logs", VisitLogResponse{
+		Unit:            params.Unit,
 		Logs:            visits,
 		TotalSessions:   int64(len(*visitLogs)),
 		TotalActivities: int64(totalActivities),

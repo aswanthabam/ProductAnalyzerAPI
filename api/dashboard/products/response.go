@@ -25,13 +25,13 @@ type ProductAccessKeyResponse struct {
 }
 
 type VisitLogResponse struct {
+	Unit            string          `json:"unit"`
 	Logs            []VisitLogEntry `json:"logs"`
 	TotalSessions   int64           `json:"total_sessions"`
 	TotalActivities int64           `json:"total_activities"`
 }
 
 type VisitLogEntry struct {
-	Type          string `json:"type"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 	ActivityCount int64  `json:"count"`
