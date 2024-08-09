@@ -7,6 +7,7 @@ import (
 	user_db "productanalyzer/api/db/user"
 	api_error "productanalyzer/api/errors"
 	response "productanalyzer/api/utils/response"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -194,4 +195,69 @@ func DeleteProduct(c *gin.Context) {
 	} else {
 		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Request Type", 400, "The given request type is invalid"))
 	}
+}
+
+func VisitLog(c *gin.Context) {
+	usr, exists := c.Get("user")
+	if !exists {
+		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
+		return
+	}
+	user := usr.(*user_db.User)
+	var params VisitLogRequest
+	if err := c.ShouldBind(&params); err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	if params.Unit != VISIT_LOG_ENTRY_UNIT_MINUTE && params.Unit != VISIT_LOG_ENTRY_UNIT_HOUR && params.Unit != VISIT_LOG_ENTRY_UNIT_DAY && params.Unit != VISIT_LOG_ENTRY_UNIT_MONTH {
+		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Unit", 400, "The given unit is invalid"))
+		return
+	}
+	if params.ToDate.IsZero() {
+		params.ToDate = time.Now().UTC()
+	}
+	product, err := products_db.GetProductByProductIDAUserID(params.ProductID, user.ID)
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	visitLogs, err := products_db.GetVisitLogs(product.ID, params.FromDate, params.ToDate)
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	visits := []VisitLogEntry{}
+	totalActivities := 0
+	for _, log := range *visitLogs {
+		totalActivities += log.ActivityCount
+		if log.ActivityCount == 0 {
+			continue
+		}
+		if params.Unit == VISIT_LOG_ENTRY_UNIT_MINUTE {
+			log.CreatedAt = primitive.NewDateTimeFromTime(log.CreatedAt.Time().Truncate(time.Minute))
+		} else if params.Unit == VISIT_LOG_ENTRY_UNIT_HOUR {
+			log.CreatedAt = primitive.NewDateTimeFromTime(log.CreatedAt.Time().Truncate(time.Hour))
+		} else if params.Unit == VISIT_LOG_ENTRY_UNIT_DAY {
+			log.CreatedAt = primitive.NewDateTimeFromTime(log.CreatedAt.Time().Truncate(24 * time.Hour))
+		} else if params.Unit == VISIT_LOG_ENTRY_UNIT_MONTH {
+			log.CreatedAt = primitive.NewDateTimeFromTime(time.Date(log.CreatedAt.Time().Year(), log.CreatedAt.Time().Month(), 1, 0, 0, 0, 0, time.UTC))
+		}
+		if len(visits) > 0 && visits[len(visits)-1].CreatedAt == log.CreatedAt.Time().UTC().String() {
+			visits[len(visits)-1].SessionCount += int64(log.ActivityCount)
+			continue
+		}
+		visits = append(visits, VisitLogEntry{
+			Type:          params.Unit,
+			CreatedAt:     log.CreatedAt.Time().UTC().String(),
+			UpdatedAt:     log.UpdatedAt.Time().UTC().String(),
+			ActivityCount: int64(log.ActivityCount),
+			SessionCount:  1,
+			Referer:       log.Referer,
+		})
+	}
+	response.SendSuccessResponse(c, "Visit logs", VisitLogResponse{
+		Logs:            visits,
+		TotalSessions:   int64(len(*visitLogs)),
+		TotalActivities: int64(totalActivities),
+	}, nil)
 }

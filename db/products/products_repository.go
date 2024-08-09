@@ -10,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -133,6 +134,41 @@ func (ps *ProductUserSession) VisitProduct(activity ProductActivity) *api_error.
 		return api_error.UnexpectedError(err)
 	}
 	return nil
+}
+
+func GetVisitLogs(productId primitive.ObjectID, fromDate time.Time, toDate time.Time) (*[]VisitLogEntry, *api_error.APIError) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	sessions := []VisitLogEntry{}
+	pipeline := mongo.Pipeline{
+		bson.D{{Key: "$match", Value: bson.M{
+			"product_id": productId,
+			"updated_at": bson.M{"$gte": fromDate, "$lte": toDate},
+		}}},
+		bson.D{{Key: "$unwind", Value: "$activities"}},
+		bson.D{{Key: "$group", Value: bson.M{
+			"_id":            "$_id",
+			"activity_count": bson.M{"$sum": 1},
+			"created_at":     bson.M{"$first": "$created_at"},
+			"updated_at":     bson.M{"$last": "$updated_at"},
+			"referer":        bson.M{"$first": "$referer"},
+		}}},
+		bson.D{{Key: "$sort", Value: bson.M{"created_at": 1}}},
+		bson.D{{Key: "$project", Value: bson.M{
+			"created_at":     1,
+			"updated_at":     1,
+			"activity_count": 1,
+			"referer":        1,
+		}}},
+	}
+	cursor, err := db.Connection.ProductUserSession.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, api_error.UnexpectedError(err)
+	}
+	if err := cursor.All(ctx, &sessions); err != nil {
+		return nil, api_error.UnexpectedError(err)
+	}
+	return &sessions, nil
 }
 
 // ValidateAPIKey validates the API Key and returns the ProductAccessKey if the key is valid
@@ -278,6 +314,7 @@ func (ps *ProductUserSession) HashSession() error {
 		Os:        ps.Os,
 		Browser:   ps.Browser,
 		Bot:       ps.Bot,
+		Referer:   ps.Referer,
 	}
 	hash, err := utils.HashStruct(psCopy)
 	if err != nil {

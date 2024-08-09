@@ -80,8 +80,12 @@ func VisitProduct(c *gin.Context) {
 				return
 			}
 		}
+		referer := c.Request.Header.Get("Referer")
+		if referer == "" {
+			referer = c.Query("referer")
+		}
 		session = &products_db.ProductUserSession{
-			ProductID: product.ID.Hex(),
+			ProductID: product.ID,
 			IPAddress: clientIp,
 			Location:  location.ID,
 			Lat:       info.Lat,
@@ -93,6 +97,7 @@ func VisitProduct(c *gin.Context) {
 			Os:        ua.OS,
 			Browser:   ua.Browser,
 			Bot:       c.GetBool("isBot"),
+			Referer:   referer,
 		}
 		if err = session.HashSession(); err != nil {
 			response.SendFailureResponse(c, err)

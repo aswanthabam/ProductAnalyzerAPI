@@ -23,3 +23,18 @@ type ProductAccessKeyResponse struct {
 	Scope     string `json:"scope"`
 	CreatedAt string `json:"created_at"`
 }
+
+type VisitLogResponse struct {
+	Logs            []VisitLogEntry `json:"logs"`
+	TotalSessions   int64           `json:"total_sessions"`
+	TotalActivities int64           `json:"total_activities"`
+}
+
+type VisitLogEntry struct {
+	Type          string `json:"type"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+	ActivityCount int64  `json:"count"`
+	SessionCount  int64  `json:"session_count"`
+	Referer       string `json:"referer"`
+}

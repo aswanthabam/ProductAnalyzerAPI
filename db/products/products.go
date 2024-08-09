@@ -32,7 +32,7 @@ type Location struct {
 type ProductUserSession struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty"` // primary key
 	Hash       string             `bson:"hash"`          // hash of the session, used for identifying the session and finding if the session changed
-	ProductID  string             `bson:"product_id"`    // product id of the product
+	ProductID  primitive.ObjectID `bson:"product_id"`    // product id of the product
 	IPAddress  string             `bson:"ip_address"`    // ip address of the user
 	Location   primitive.ObjectID `bson:"location_id"`   // location id of the user
 	Lat        float64            `bson:"lat"`           // latitude of the location
@@ -44,7 +44,7 @@ type ProductUserSession struct {
 	Os         string             `bson:"os"`            // operating system of the user
 	Browser    string             `bson:"browser"`       // browser of the user
 	Bot        bool               `bson:"bot"`           // whether the user is a bot
-	Refferer   string             `bson:"refferer"`      // refferer of the user
+	Referer    string             `bson:"referer"`       // refferer of the user
 	Activities []ProductActivity  `bson:"activities"`    // activities of the user
 	CreatedAt  primitive.DateTime `bson:"created_at"`    // time at which the session was created
 	UpdatedAt  primitive.DateTime `bson:"updated_at"`    // time at which the session was last updated
@@ -65,4 +65,13 @@ type ProductActivity struct {
 	Page   string             `json:"page"`   // page the user accessed
 	Method string             `json:"method"` // method used to access the page, GET, POST, etc
 	Time   primitive.DateTime `json:"time"`   // time at which the user accessed the page
+}
+
+/* REQUEST TYPES */
+
+type VisitLogEntry struct {
+	CreatedAt     primitive.DateTime `bson:"created_at"`     // time at which the visit log was created
+	UpdatedAt     primitive.DateTime `bson:"updated_at"`     // time at which the visit log was last updated
+	ActivityCount int                `bson:"activity_count"` // activities of the user
+	Referer       string             `bson:"referer"`        // refferer of the user
 }
