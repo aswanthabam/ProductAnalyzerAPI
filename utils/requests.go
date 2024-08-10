@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -54,12 +55,14 @@ type UserAgentDetails struct {
 // GetIPAddress returns the IP address of the client making the request
 func GetIPAddress(c *gin.Context) (string, error) {
 	ip := c.ClientIP()
-	forwardedFor := c.Request.Header.Get("x-forwarded-for")
-	if forwardedFor != "" {
-		ip = forwardedFor
+	if forwardedFor := c.Request.Header.Get("x-forwarded-for"); forwardedFor != "" {
+		ips := strings.Split(forwardedFor, ",")
+		if len(ips) > 0 {
+			ip = strings.TrimSpace(ips[0])
+		}
 	}
-	if ip == "" {
-		return "", errors.New("could not get ip address")
+	if net.ParseIP(ip) == nil {
+		return "", errors.New("could not parse IP address from request")
 	}
 	return ip, nil
 }
