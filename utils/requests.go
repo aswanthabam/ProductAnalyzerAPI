@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -109,12 +110,15 @@ func SendGetRequest(url string, result interface{}) error {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Println("IP API response didnt got :: ", result)
 		return fmt.Errorf("error reading response body: %w", err)
 	}
 	if err := json.Unmarshal(body, result); err != nil {
+		log.Println("IP API response was not json :: ", result)
 		return fmt.Errorf("error parsing JSON: %w", err)
 	}
 	if result.(*IPInfoResponse).Status != "success" {
+		log.Println("IP API response status is not success :: ", result)
 		return errors.New("error getting IP info")
 	}
 	return nil
