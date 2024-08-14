@@ -21,5 +21,13 @@ func SetupRoutes(router *gin.RouterGroup) {
 
 			protectedProductsRoute.GET("/logs", products_route.VisitLog)
 		}
+
+		socketRoute := productsRoute.Group("/")
+		socketRoute.Use(middlewares.WebsocketMiddleware())
+		protectedSocketRoute := socketRoute.Group("/")
+		protectedSocketRoute.Use(middlewares.WebsocketAuthMiddleware(true))
+		{
+			protectedSocketRoute.GET("/logs/ws/:product_id", products_route.HandleLogWebsocket)
+		}
 	}
 }

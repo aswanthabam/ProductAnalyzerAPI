@@ -5,6 +5,7 @@ import (
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
 	response "productanalyzer/api/utils/response"
+	"productanalyzer/api/websockets"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -46,6 +47,7 @@ func VisitProduct(c *gin.Context) {
 		return
 	}
 	product := prod.(*products_db.Product)
+	var location products_db.Location
 	if session == nil {
 		info, err := utils.GetIPAddressInfo(clientIp)
 		if err != nil {
@@ -55,7 +57,7 @@ func VisitProduct(c *gin.Context) {
 		userAgent := c.GetHeader("User-Agent")
 		ua := utils.GetUserAgentDetails(userAgent)
 		// referer := c.GetHeader("Referer")
-		location := products_db.Location{
+		location = products_db.Location{
 			City:     info.City,
 			Region:   info.Region,
 			Country:  info.Country,
@@ -130,6 +132,10 @@ func VisitProduct(c *gin.Context) {
 		Time:   utils.GetCurrentTime(),
 	}
 	err := session.VisitProduct(activity)
+	websockets.SendLog(product.ID.Hex(), websockets.Visit{
+		Country: location.Country,
+		Referer: session.Referer,
+	})
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return

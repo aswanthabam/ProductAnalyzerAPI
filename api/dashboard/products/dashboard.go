@@ -7,6 +7,7 @@ import (
 	user_db "productanalyzer/api/db/user"
 	api_error "productanalyzer/api/errors"
 	response "productanalyzer/api/utils/response"
+	"productanalyzer/api/websockets"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -261,4 +262,33 @@ func VisitLog(c *gin.Context) {
 		TotalSessions:   int64(len(*visitLogs)),
 		TotalActivities: int64(totalActivities),
 	}, nil)
+}
+
+func HandleLogWebsocket(c *gin.Context) {
+	conn, exists := c.Get("websocket")
+	if !exists {
+		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
+		return
+	}
+	u, exists := c.Get("user")
+	if !exists {
+		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
+		return
+	}
+	user := u.(*user_db.User)
+	ws := conn.(*websockets.WebsocketConnection)
+	productId := c.Param("product_id")
+	product, err := products_db.GetProductByProductIDAUserID(productId, user.ID)
+	if err != nil {
+		ws.SendErrorMesage(err.Message)
+		ws.Close()
+		return
+	}
+	err2 := websockets.OpenLogConnection(ws, product.ID.Hex())
+	if err2 != nil {
+		ws.SendErrorMesage(err2.Error())
+		ws.Close()
+		return
+	}
+	ws.SendData(gin.H{"message": "Connection established"})
 }
