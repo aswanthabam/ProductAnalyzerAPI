@@ -197,6 +197,7 @@ func DeleteProduct(c *gin.Context) {
 	}
 }
 
+// Get Log of a product, filtered by date range and unit(month, day ..) [GET]
 func VisitLog(c *gin.Context) {
 	usr, exists := c.Get("user")
 	if !exists {
