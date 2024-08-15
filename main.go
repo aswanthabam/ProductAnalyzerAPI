@@ -12,6 +12,7 @@ import (
 
 func SetupRouter() *gin.Engine {
 	router := gin.Default()
+	router.Use(middlewares.CorsMiddleware())
 	router.Use(middlewares.BotDetectionMiddleware())
 	apiRouter := router.Group("/api")
 	api.SetupRoutes(apiRouter)
