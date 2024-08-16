@@ -1,8 +1,8 @@
-package deletion_db
+package db_mongo
 
 import (
 	"context"
-	"productanalyzer/api/db"
+	db_types "productanalyzer/api/db/types"
 	api_error "productanalyzer/api/errors"
 	"time"
 
@@ -10,10 +10,15 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func AddToDeletionList(objectID primitive.ObjectID, objectType string) (primitive.ObjectID, *api_error.APIError) {
+type MongoDeletionListRepository struct {
+	Connection *MongoConnection
+}
+type MongoDeletionList = db_types.DeletionList[primitive.ObjectID]
+
+func (m *MongoDeletionListRepository) AddToDeletionList(objectID primitive.ObjectID, objectType string) (primitive.ObjectID, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	id, err := db.Connection.DeletionList.InsertOne(ctx, bson.M{"object_id": objectID, "type": objectType,
+	id, err := m.Connection.DeletionList.InsertOne(ctx, bson.M{"object_id": objectID, "type": objectType,
 		"expires": primitive.NewDateTimeFromTime(time.Now().Add(2 * time.Minute)).Time().UTC()})
 	if err != nil {
 		return primitive.NilObjectID, api_error.UnexpectedError(err)
@@ -24,14 +29,14 @@ func AddToDeletionList(objectID primitive.ObjectID, objectType string) (primitiv
 	return id.InsertedID.(primitive.ObjectID), nil
 }
 
-func GetFromDeletionList(objectId primitive.ObjectID) (*DeletionList, *api_error.APIError) {
+func (m *MongoDeletionListRepository) GetFromDeletionList(objectId primitive.ObjectID) (*MongoDeletionList, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	deletionList := DeletionList{}
-	if err := db.Connection.DeletionList.FindOne(ctx, bson.M{"_id": objectId}).Decode(&deletionList); err != nil {
+	deletionList := MongoDeletionList{}
+	if err := m.Connection.DeletionList.FindOne(ctx, bson.M{"_id": objectId}).Decode(&deletionList); err != nil {
 		return nil, api_error.NewAPIError("Unable to complete deletion.", 404, "Requested object not found in deletion list")
 	}
-	if deletionList.Expires.Time().UTC().Before(time.Now().UTC()) {
+	if deletionList.Expires.UTC().Before(time.Now().UTC()) {
 		return nil, api_error.NewAPIError("Unable to complete deletion", 404, "Time to delete the object has expired, try again")
 	}
 	return &deletionList, nil

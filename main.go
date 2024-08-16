@@ -5,6 +5,7 @@ import (
 	"productanalyzer/api/api"
 	"productanalyzer/api/config"
 	"productanalyzer/api/db"
+	db_mongo "productanalyzer/api/db/mongo"
 	"productanalyzer/api/middlewares"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,7 @@ func SetupRouter() *gin.Engine {
 
 func main() {
 	err := config.Config.Load()
+	db.Connection = &db_mongo.MongoConnection{}
 	if err != nil {
 		log.Panic(err)
 	}
@@ -28,12 +30,9 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	err = db.Connection.FetchCollections()
-	if err != nil {
-		log.Panic(err)
-	}
 	defer db.Connection.Close()
 	db.Connection.Initialize()
+	db.InitializeRepositories()
 	router := SetupRouter()
 	if err := router.Run(config.Config.HOST); err != nil {
 		log.Panic(err)

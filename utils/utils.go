@@ -17,7 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -179,8 +178,8 @@ func HashString(key string) (string, error) {
 	return string(hash), nil
 }
 
-func GetCurrentTime() primitive.DateTime {
-	return primitive.NewDateTimeFromTime(GetUTCTime())
+func GetCurrentTime() time.Time {
+	return GetUTCTime()
 }
 
 func GetUTCTime() time.Time {

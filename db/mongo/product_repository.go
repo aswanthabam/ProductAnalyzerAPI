@@ -1,9 +1,9 @@
-package products_db
+package db_mongo
 
 import (
 	"context"
 	"log"
-	"productanalyzer/api/db"
+	db_types "productanalyzer/api/db/types"
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
 	"time"
@@ -14,9 +14,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type MongoProductRepository struct {
+	Connection *MongoConnection
+}
+
+type MongoProduct = db_types.Product[primitive.ObjectID]
+type MongoProductUserSession = db_types.ProductUserSession[primitive.ObjectID]
+type MongoProductAccessKey = db_types.ProductAccessKey[primitive.ObjectID]
+type MongoLocation = db_types.Location[primitive.ObjectID]
+
 // Inserts a new product into the database and returns the id of the product
-func CreateProduct(product *Product) (primitive.ObjectID, *api_error.APIError) {
-	if _, err := GetProductByProductIDAUserID(product.ProductID, product.UserID); err == nil {
+func (m *MongoProductRepository) CreateProduct(product *MongoProduct) (primitive.ObjectID, *api_error.APIError) {
+	if _, err := m.GetProductByProductIDAUserID(product.ProductID, product.UserID); err == nil {
 		return primitive.NilObjectID, api_error.NewAPIError("Product Already Exists", 409, "Product with the same product id already exists")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -25,18 +34,18 @@ func CreateProduct(product *Product) (primitive.ObjectID, *api_error.APIError) {
 	product.AccessKeys = []primitive.ObjectID{}
 	product.CreatedAt = curTime
 	product.UpdatedAt = curTime
-	result, err2 := db.Connection.Products.InsertOne(ctx, product)
+	result, err2 := m.Connection.Products.InsertOne(ctx, product)
 	if err2 != nil {
 		return primitive.NilObjectID, api_error.UnexpectedError(err2)
 	}
 	return result.InsertedID.(primitive.ObjectID), nil
 }
-func CreateProductAccessKey(productID primitive.ObjectID, scope string) (*ProductAccessKey, *api_error.APIError) {
+func (m *MongoProductRepository) CreateProductAccessKey(productID primitive.ObjectID, scope string) (*MongoProductAccessKey, *api_error.APIError) {
 	key, err := utils.GenerateAPIKey()
 	if err != nil {
 		return nil, api_error.UnexpectedError(err)
 	}
-	accessKey := ProductAccessKey{
+	accessKey := MongoProductAccessKey{
 		ProductID: productID,
 		AccessKey: key,
 		Scope:     scope,
@@ -44,7 +53,7 @@ func CreateProductAccessKey(productID primitive.ObjectID, scope string) (*Produc
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	id, err := db.Connection.ProductAccessKey.InsertOne(ctx, accessKey)
+	id, err := m.Connection.ProductAccessKey.InsertOne(ctx, accessKey)
 	if err != nil {
 		return nil, api_error.UnexpectedError(err)
 	}
@@ -53,22 +62,22 @@ func CreateProductAccessKey(productID primitive.ObjectID, scope string) (*Produc
 }
 
 // Get a product by its object id
-func GetProductByID(productId primitive.ObjectID) (*Product, *api_error.APIError) {
+func (m *MongoProductRepository) GetProductByID(productId primitive.ObjectID) (*MongoProduct, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	product := Product{}
-	if err := db.Connection.Products.FindOne(ctx, bson.M{"_id": productId}).Decode(&product); err != nil {
+	product := MongoProduct{}
+	if err := m.Connection.Products.FindOne(ctx, bson.M{"_id": productId}).Decode(&product); err != nil {
 		return nil, api_error.NewAPIError("Product Not Found", 404, "The requested product was not found")
 	}
 	return &product, nil
 }
 
 // Get all products created by a user
-func GetProductsByUserID(userId primitive.ObjectID) (*[]Product, *api_error.APIError) {
+func (m *MongoProductRepository) GetProductsByUserID(userId primitive.ObjectID) (*[]MongoProduct, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	products := []Product{}
-	cursor, err := db.Connection.Products.Find(ctx, bson.M{"user_id": userId})
+	products := []MongoProduct{}
+	cursor, err := m.Connection.Products.Find(ctx, bson.M{"user_id": userId})
 	if err != nil {
 		return nil, api_error.UnexpectedError(err)
 	}
@@ -79,21 +88,21 @@ func GetProductsByUserID(userId primitive.ObjectID) (*[]Product, *api_error.APIE
 }
 
 // Get a product by its object id and user id
-func GetProductByProductIDAUserID(productId string, userId primitive.ObjectID) (*Product, *api_error.APIError) {
+func (m *MongoProductRepository) GetProductByProductIDAUserID(productId string, userId primitive.ObjectID) (*MongoProduct, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	product := Product{}
-	if err := db.Connection.Products.FindOne(ctx, bson.M{"product_id": productId, "user_id": userId}).Decode(&product); err != nil {
+	product := MongoProduct{}
+	if err := m.Connection.Products.FindOne(ctx, bson.M{"product_id": productId, "user_id": userId}).Decode(&product); err != nil {
 		return nil, api_error.NewAPIError("Product Not Found", 404, "Product not found")
 	}
 	return &product, nil
 }
 
 // Update a product in the database
-func UpdateProduct(product Product) *api_error.APIError {
+func (m *MongoProductRepository) UpdateProduct(product MongoProduct) *api_error.APIError {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := db.Connection.Products.UpdateOne(ctx, bson.M{"_id": product.ID}, bson.M{"$set": product})
+	_, err := m.Connection.Products.UpdateOne(ctx, bson.M{"_id": product.ID}, bson.M{"$set": product})
 	if err != nil {
 		return api_error.UnexpectedError(err)
 	}
@@ -101,10 +110,10 @@ func UpdateProduct(product Product) *api_error.APIError {
 }
 
 // Delete a product from the database
-func DeleteProduct(productId primitive.ObjectID) *api_error.APIError {
+func (m *MongoProductRepository) DeleteProduct(productId primitive.ObjectID) *api_error.APIError {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := db.Connection.Products.DeleteOne(ctx, bson.M{"_id": productId})
+	_, err := m.Connection.Products.DeleteOne(ctx, bson.M{"_id": productId})
 	if err != nil {
 		return api_error.UnexpectedError(err)
 	}
@@ -114,7 +123,7 @@ func DeleteProduct(productId primitive.ObjectID) *api_error.APIError {
 // VisitProduct visits a product and logs the activity,
 // If a visit exists with the given session, it appends the activity to the existing visit,
 // otherwise it creates a new visit with the activity.
-func (ps *ProductUserSession) VisitProduct(activity ProductActivity) *api_error.APIError {
+func (m *MongoProductRepository) VisitProduct(ps *MongoProductUserSession, activity db_types.ProductActivity) *api_error.APIError {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if ps.ID.IsZero() {
@@ -122,7 +131,7 @@ func (ps *ProductUserSession) VisitProduct(activity ProductActivity) *api_error.
 	}
 	ps.Activities = append(ps.Activities, activity)
 	ps.UpdatedAt = utils.GetCurrentTime()
-	_, err := db.Connection.ProductUserSession.UpdateOne(ctx,
+	_, err := m.Connection.ProductUserSession.UpdateOne(ctx,
 		bson.M{"_id": ps.ID},
 		bson.M{
 			"$set": bson.M{
@@ -136,10 +145,10 @@ func (ps *ProductUserSession) VisitProduct(activity ProductActivity) *api_error.
 	return nil
 }
 
-func GetVisitLogs(productId primitive.ObjectID, fromDate time.Time, toDate time.Time) (*[]VisitLogEntry, *api_error.APIError) {
+func (m *MongoProductRepository) GetVisitLogs(productId primitive.ObjectID, fromDate time.Time, toDate time.Time) (*[]db_types.VisitLogEntry, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	sessions := []VisitLogEntry{}
+	sessions := []db_types.VisitLogEntry{}
 	pipeline := mongo.Pipeline{
 		bson.D{{Key: "$match", Value: bson.M{
 			"product_id": productId,
@@ -161,7 +170,7 @@ func GetVisitLogs(productId primitive.ObjectID, fromDate time.Time, toDate time.
 			"referer":        1,
 		}}},
 	}
-	cursor, err := db.Connection.ProductUserSession.Aggregate(ctx, pipeline)
+	cursor, err := m.Connection.ProductUserSession.Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, api_error.UnexpectedError(err)
 	}
@@ -173,28 +182,28 @@ func GetVisitLogs(productId primitive.ObjectID, fromDate time.Time, toDate time.
 
 // ValidateAPIKey validates the API Key and returns the ProductAccessKey if the key is valid
 // and has the required scope, otherwise it returns an error. This method uses the hashed key for validation.
-func ValidateAPIKey(apiKey, scope string) (*ProductAccessKey, *api_error.APIError) {
+func (m *MongoProductRepository) ValidateAPIKey(apiKey, scope string) (*MongoProductAccessKey, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	accessKey := ProductAccessKey{}
-	if err := db.Connection.ProductAccessKey.FindOne(ctx, bson.M{
+	accessKey := MongoProductAccessKey{}
+	if err := m.Connection.ProductAccessKey.FindOne(ctx, bson.M{
 		"access_key": apiKey,
 	}).Decode(&accessKey); err != nil {
 		log.Print(err)
 		return nil, api_error.NewAPIError("Invalid API Key", 401, "Invalid API Key")
 	}
-	if accessKey.Scope != scope && accessKey.Scope != PRODUCT_ACCESS_KEY_SCOPE_ALL {
+	if accessKey.Scope != scope && accessKey.Scope != db_types.PRODUCT_ACCESS_KEY_SCOPE_ALL {
 		return nil, api_error.NewAPIError("Invalid API Key", 401, "Invalid Scope, the API Key does not have the required permissions")
 	}
 	return &accessKey, nil
 }
 
 // GetProductAccessKeys returns all the access keys for a product
-func GetProductAccessKeys(productID primitive.ObjectID) (*[]ProductAccessKey, *api_error.APIError) {
+func (m *MongoProductRepository) GetProductAccessKeys(productID primitive.ObjectID) (*[]MongoProductAccessKey, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	keys := []ProductAccessKey{}
-	cursor, err := db.Connection.ProductAccessKey.Find(ctx, bson.M{"product_id": productID})
+	keys := []MongoProductAccessKey{}
+	cursor, err := m.Connection.ProductAccessKey.Find(ctx, bson.M{"product_id": productID})
 	if err != nil {
 		return nil, api_error.UnexpectedError(err)
 	}
@@ -205,34 +214,34 @@ func GetProductAccessKeys(productID primitive.ObjectID) (*[]ProductAccessKey, *a
 }
 
 // GetProductByAccessKeyAndProductID returns the product with the given product id and access key
-func GetProductByAccessKeyAndProductID(apiKey string, productId string) (*Product, *api_error.APIError) {
+func (m *MongoProductRepository) GetProductByAccessKeyAndProductID(apiKey string, productId string) (*MongoProduct, *api_error.APIError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	product := Product{}
-	if err := db.Connection.Products.FindOne(ctx, bson.M{"product_id": productId, "access_keys.access_key": apiKey}).Decode(&product); err != nil {
+	product := MongoProduct{}
+	if err := m.Connection.Products.FindOne(ctx, bson.M{"product_id": productId, "access_keys.access_key": apiKey}).Decode(&product); err != nil {
 		return nil, api_error.NewAPIError("Product Not Found", 404, "Product not found")
 	}
 	return &product, nil
 }
 
-func GetSessionById(sessionId primitive.ObjectID) (*ProductUserSession, error) {
+func (m *MongoProductRepository) GetSessionById(sessionId primitive.ObjectID) (*MongoProductUserSession, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	session := ProductUserSession{}
-	err := db.Connection.ProductUserSession.FindOne(ctx, bson.M{"_id": sessionId}).Decode(&session)
+	session := MongoProductUserSession{}
+	err := m.Connection.ProductUserSession.FindOne(ctx, bson.M{"_id": sessionId}).Decode(&session)
 	return &session, err
 }
 
 /* SAVE METHODS */
 
-func (lc *Location) Save() error {
+func (m *MongoProductRepository) SaveLocation(lc *MongoLocation) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if !lc.ID.IsZero() {
-		_, err := db.Connection.Location.UpdateOne(ctx, bson.M{"_id": lc.ID}, bson.M{"$set": lc})
+		_, err := m.Connection.Location.UpdateOne(ctx, bson.M{"_id": lc.ID}, bson.M{"$set": lc})
 		return err
 	}
-	id, err := db.Connection.Location.InsertOne(ctx, lc)
+	id, err := m.Connection.Location.InsertOne(ctx, lc)
 	if err != nil {
 		return err
 	}
@@ -240,15 +249,15 @@ func (lc *Location) Save() error {
 	return nil
 }
 
-func (ps *ProductUserSession) Save() error {
+func (m *MongoProductRepository) SaveProductUserSession(ps *MongoProductUserSession) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if !ps.ID.IsZero() {
-		_, err := db.Connection.ProductUserSession.UpdateOne(ctx, bson.M{"_id": ps.ID}, bson.M{"$set": ps})
+		_, err := m.Connection.ProductUserSession.UpdateOne(ctx, bson.M{"_id": ps.ID}, bson.M{"$set": ps})
 		return err
 	}
 	ps.CreatedAt = utils.GetCurrentTime()
-	id, err := db.Connection.ProductUserSession.InsertOne(ctx, ps)
+	id, err := m.Connection.ProductUserSession.InsertOne(ctx, ps)
 	if err != nil {
 		return err
 	}
@@ -256,36 +265,36 @@ func (ps *ProductUserSession) Save() error {
 	return nil
 }
 
-func (lc Location) ExistsHash() (bool, error) {
+func (m *MongoProductRepository) ExistsLocationHash(lc MongoLocation) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	count, err := db.Connection.Location.CountDocuments(ctx, bson.M{"hash": lc.Hash})
+	count, err := m.Connection.Location.CountDocuments(ctx, bson.M{"hash": lc.Hash})
 	if err != nil {
 		return false, err
 	}
 	return count > 0, nil
 }
 
-func (ps ProductUserSession) ExistsHash() (bool, error) {
+func (m *MongoProductRepository) ExistsProductUserSessionHash(ps MongoProductUserSession) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	count, err := db.Connection.ProductUserSession.CountDocuments(ctx, bson.M{"hash": ps.Hash})
+	count, err := m.Connection.ProductUserSession.CountDocuments(ctx, bson.M{"hash": ps.Hash})
 	if err != nil {
 		return false, err
 	}
 	return count > 0, nil
 }
 
-func (lc *Location) GetByHash() error {
+func (m *MongoProductRepository) GetLocationByHash(lc *MongoLocation) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return db.Connection.Location.FindOne(ctx, bson.M{"hash": lc.Hash}).Decode(lc)
+	return m.Connection.Location.FindOne(ctx, bson.M{"hash": lc.Hash}).Decode(lc)
 }
 
-func (ps *ProductUserSession) GetByHash() (bool, error) {
+func (m *MongoProductRepository) GetProductUserSessionByHash(ps *MongoProductUserSession) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	err := db.Connection.ProductUserSession.FindOne(
+	err := m.Connection.ProductUserSession.FindOne(
 		ctx,
 		bson.M{"hash": ps.Hash},
 		options.FindOne().SetSort(bson.M{"created_at": -1}),
@@ -300,8 +309,8 @@ func (ps *ProductUserSession) GetByHash() (bool, error) {
 	return true, nil
 }
 
-func (ps *ProductUserSession) HashSession() error {
-	psCopy := ProductUserSession{
+func (m *MongoProductRepository) HashProductUserSession(ps *MongoProductUserSession) error {
+	psCopy := MongoProductUserSession{
 		ProductID: ps.ProductID,
 		IPAddress: ps.IPAddress,
 		Location:  ps.Location,

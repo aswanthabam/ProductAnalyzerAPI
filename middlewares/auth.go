@@ -2,8 +2,7 @@ package middlewares
 
 import (
 	"net/http"
-	products_db "productanalyzer/api/db/products"
-	user_db "productanalyzer/api/db/user"
+	"productanalyzer/api/db"
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
 	response "productanalyzer/api/utils/response"
@@ -46,7 +45,7 @@ func AuthMiddleware(requireVerifiedEmail bool) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		user, err := user_db.GetUserByID(userID)
+		user, err := db.UserRepository.GetUserByID(userID)
 		if err != nil {
 			response.SendFailureResponse(c, api_error.NewAPIError("User not found", http.StatusNotFound, "User not found"))
 			c.Abort()
@@ -75,14 +74,14 @@ func AccessKeyMiddleware(scope string, strictHeader bool) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		accessKey, err := products_db.ValidateAPIKey(key, scope)
+		accessKey, err := db.ProductRepository.ValidateAPIKey(key, scope)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			c.Abort()
 			return
 		}
 		c.Set("access_key", accessKey)
-		product, err := products_db.GetProductByID(accessKey.ProductID)
+		product, err := db.ProductRepository.GetProductByID(accessKey.ProductID)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			c.Abort()

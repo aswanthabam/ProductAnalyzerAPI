@@ -2,9 +2,8 @@ package products_route
 
 import (
 	"log"
-	deletion_db "productanalyzer/api/db/deletion"
-	products_db "productanalyzer/api/db/products"
-	user_db "productanalyzer/api/db/user"
+	"productanalyzer/api/db"
+	db_types "productanalyzer/api/db/types"
 	api_error "productanalyzer/api/errors"
 	response "productanalyzer/api/utils/response"
 	"productanalyzer/api/websockets"
@@ -22,20 +21,20 @@ func CreateProduct(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	var params CreateProductRequest
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	product := products_db.Product{
+	product := db.Product{
 		Name:        params.Name,
 		Description: params.Description,
 		BaseUrl:     params.BaseUrl,
 		ProductID:   params.ProductID,
 		UserID:      user.ID,
 	}
-	productId, err := products_db.CreateProduct(&product)
+	productId, err := db.ProductRepository.CreateProduct(&product)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -52,24 +51,24 @@ func CreateAccessKey(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	var params CreateAccessKeyRequest
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	product, err := products_db.GetProductByProductIDAUserID(params.ProductID, user.ID)
+	product, err := db.ProductRepository.GetProductByProductIDAUserID(params.ProductID, user.ID)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	key, err := products_db.CreateProductAccessKey(product.ID, params.Scope)
+	key, err := db.ProductRepository.CreateProductAccessKey(product.ID, params.Scope)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
 	product.AccessKeys = append(product.AccessKeys, key.ID)
-	err = products_db.UpdateProduct(*product)
+	err = db.ProductRepository.UpdateProduct(*product)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -88,13 +87,13 @@ func ProductInfo(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	var params ProductInfoRequest
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	product, err := products_db.GetProductByProductIDAUserID(params.ProductID, user.ID)
+	product, err := db.ProductRepository.GetProductByProductIDAUserID(params.ProductID, user.ID)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -114,18 +113,18 @@ func ProductAccessKeys(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	var params ProductAccessKeysRequest
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	product, err := products_db.GetProductByProductIDAUserID(params.ProductID, user.ID)
+	product, err := db.ProductRepository.GetProductByProductIDAUserID(params.ProductID, user.ID)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	accessKeys, err := products_db.GetProductAccessKeys(product.ID)
+	accessKeys, err := db.ProductRepository.GetProductAccessKeys(product.ID)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -135,7 +134,7 @@ func ProductAccessKeys(c *gin.Context) {
 		keys = append(keys, ProductAccessKeyResponse{
 			AccessKey: key.AccessKey,
 			Scope:     key.Scope,
-			CreatedAt: key.CreatedAt.Time().UTC().String(),
+			CreatedAt: key.CreatedAt.UTC().String(),
 		})
 	}
 	response.SendSuccessResponse(c, "Product access keys", keys, nil)
@@ -148,46 +147,46 @@ func DeleteProduct(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	var params DeleteProductRequest
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	if params.Type == deletion_db.DELETION_REQUEST_TYPE_INITIAL {
-		product, err := products_db.GetProductByProductIDAUserID(params.InstanceId, user.ID)
+	if params.Type == db_types.DELETION_REQUEST_TYPE_INITIAL {
+		product, err := db.ProductRepository.GetProductByProductIDAUserID(params.InstanceId, user.ID)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			return
 		}
-		id, err := deletion_db.AddToDeletionList(product.ID, deletion_db.DELETION_TYPE_PRODUCT)
+		id, err := db.DeletionListRepository.AddToDeletionList(product.ID, db_types.DELETION_TYPE_PRODUCT)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			return
 		}
 		response.SendSuccessResponse(c, "Product deletion request initiated", bson.M{"instance_id": id.Hex()}, nil)
-	} else if params.Type == deletion_db.DELETION_REQUEST_TYPE_CONFIRM {
+	} else if params.Type == db_types.DELETION_REQUEST_TYPE_CONFIRM {
 		objectId, err2 := primitive.ObjectIDFromHex(params.InstanceId)
 		if err2 != nil {
 			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Instance ID", 400, "The given instance id is invalid"))
 			return
 		}
-		deletion, err := deletion_db.GetFromDeletionList(objectId)
+		deletion, err := db.DeletionListRepository.GetFromDeletionList(objectId)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			return
 		}
-		if deletion.Type != deletion_db.DELETION_TYPE_PRODUCT {
+		if deletion.Type != db_types.DELETION_TYPE_PRODUCT {
 			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Instance ID", 400, "The given instance id is invalid"))
 			return
 		}
 		log.Print(deletion.ObjectID)
-		product, err := products_db.GetProductByID(deletion.ObjectID)
+		product, err := db.ProductRepository.GetProductByID(deletion.ObjectID)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			return
 		}
-		err = products_db.DeleteProduct(product.ID)
+		err = db.ProductRepository.DeleteProduct(product.ID)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			return
@@ -205,7 +204,7 @@ func VisitLog(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	var params VisitLogRequest
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
@@ -218,12 +217,12 @@ func VisitLog(c *gin.Context) {
 	if params.ToDate.IsZero() {
 		params.ToDate = time.Now().UTC()
 	}
-	product, err := products_db.GetProductByProductIDAUserID(params.ProductID, user.ID)
+	product, err := db.ProductRepository.GetProductByProductIDAUserID(params.ProductID, user.ID)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	visitLogs, err := products_db.GetVisitLogs(product.ID, params.FromDate, params.ToDate)
+	visitLogs, err := db.ProductRepository.GetVisitLogs(product.ID, params.FromDate, params.ToDate)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -236,21 +235,21 @@ func VisitLog(c *gin.Context) {
 			continue
 		}
 		if params.Unit == VISIT_LOG_ENTRY_UNIT_MINUTE {
-			log.CreatedAt = primitive.NewDateTimeFromTime(log.CreatedAt.Time().Truncate(time.Minute))
+			log.CreatedAt = log.CreatedAt.Truncate(time.Minute)
 		} else if params.Unit == VISIT_LOG_ENTRY_UNIT_HOUR {
-			log.CreatedAt = primitive.NewDateTimeFromTime(log.CreatedAt.Time().Truncate(time.Hour))
+			log.CreatedAt = log.CreatedAt.Truncate(time.Hour)
 		} else if params.Unit == VISIT_LOG_ENTRY_UNIT_DAY {
-			log.CreatedAt = primitive.NewDateTimeFromTime(log.CreatedAt.Time().Truncate(24 * time.Hour))
+			log.CreatedAt = log.CreatedAt.Truncate(24 * time.Hour)
 		} else if params.Unit == VISIT_LOG_ENTRY_UNIT_MONTH {
-			log.CreatedAt = primitive.NewDateTimeFromTime(time.Date(log.CreatedAt.Time().Year(), log.CreatedAt.Time().Month(), 1, 0, 0, 0, 0, time.UTC))
+			log.CreatedAt = time.Date(log.CreatedAt.Year(), log.CreatedAt.Month(), 1, 0, 0, 0, 0, time.UTC)
 		}
-		if len(visits) > 0 && visits[len(visits)-1].CreatedAt == log.CreatedAt.Time().UTC().String() {
+		if len(visits) > 0 && visits[len(visits)-1].CreatedAt == log.CreatedAt.UTC().String() {
 			visits[len(visits)-1].SessionCount += int64(log.ActivityCount)
 			continue
 		}
 		visits = append(visits, VisitLogEntry{
-			CreatedAt:     log.CreatedAt.Time().UTC().String(),
-			UpdatedAt:     log.UpdatedAt.Time().UTC().String(),
+			CreatedAt:     log.CreatedAt.UTC().String(),
+			UpdatedAt:     log.UpdatedAt.UTC().String(),
 			ActivityCount: int64(log.ActivityCount),
 			SessionCount:  1,
 			Referer:       log.Referer,
@@ -275,10 +274,10 @@ func HandleLogWebsocket(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := u.(*user_db.User)
+	user := u.(*db.User)
 	ws := conn.(*websockets.WebsocketConnection)
 	productId := c.Param("product_id")
-	product, err := products_db.GetProductByProductIDAUserID(productId, user.ID)
+	product, err := db.ProductRepository.GetProductByProductIDAUserID(productId, user.ID)
 	if err != nil {
 		ws.SendErrorMesage(err.Message)
 		ws.Close()

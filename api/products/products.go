@@ -1,7 +1,8 @@
 package products
 
 import (
-	products_db "productanalyzer/api/db/products"
+	"productanalyzer/api/db"
+	db_types "productanalyzer/api/db/types"
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
 	response "productanalyzer/api/utils/response"
@@ -23,14 +24,14 @@ func VisitProduct(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	var session *products_db.ProductUserSession
+	var session *db.ProductUserSession
 	if params.SessionId != "" {
 		sessionId, err := primitive.ObjectIDFromHex(params.SessionId)
 		if err != nil {
 			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Session ID", 400, "Invalid Session ID"))
 			return
 		}
-		session, err = products_db.GetSessionById(sessionId)
+		session, err = db.ProductRepository.GetSessionById(sessionId)
 		if err != nil {
 			response.SendFailureResponse(c, err)
 			return
@@ -46,8 +47,9 @@ func VisitProduct(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Session ID", 400, "Invalid Session ID, Session is not of the current user"))
 		return
 	}
-	product := prod.(*products_db.Product)
-	var location products_db.Location
+	product := prod.(*db.Product)
+	var location db.Location
+	productRepository := db.ProductRepository
 	if session == nil {
 		info, err := utils.GetIPAddressInfo(clientIp)
 		if err != nil {
@@ -57,7 +59,7 @@ func VisitProduct(c *gin.Context) {
 		userAgent := c.GetHeader("User-Agent")
 		ua := utils.GetUserAgentDetails(userAgent)
 		// referer := c.GetHeader("Referer")
-		location = products_db.Location{
+		location = db.Location{
 			City:     info.City,
 			Region:   info.Region,
 			Country:  info.Country,
@@ -68,16 +70,16 @@ func VisitProduct(c *gin.Context) {
 			response.SendFailureResponse(c, err)
 			return
 		}
-		if exists, err := location.ExistsHash(); err != nil {
+		if exists, err := productRepository.ExistsLocationHash(location); err != nil {
 			response.SendFailureResponse(c, err)
 			return
 		} else if exists {
-			if err := location.GetByHash(); err != nil {
+			if err := productRepository.GetLocationByHash(&location); err != nil {
 				response.SendFailureResponse(c, err)
 				return
 			}
 		} else {
-			if err = location.Save(); err != nil {
+			if err = productRepository.SaveLocation(&location); err != nil {
 				response.SendFailureResponse(c, err)
 				return
 			}
@@ -86,7 +88,7 @@ func VisitProduct(c *gin.Context) {
 		if referer == "" {
 			referer = c.Query("referer")
 		}
-		session = &products_db.ProductUserSession{
+		session = &db.ProductUserSession{
 			ProductID: product.ID,
 			IPAddress: clientIp,
 			Location:  location.ID,
@@ -101,37 +103,37 @@ func VisitProduct(c *gin.Context) {
 			Bot:       c.GetBool("isBot"),
 			Referer:   referer,
 		}
-		if err = session.HashSession(); err != nil {
+		if err = productRepository.HashProductUserSession(session); err != nil {
 			response.SendFailureResponse(c, err)
 			return
 		}
 
-		if exists, err := session.GetByHash(); err != nil {
+		if exists, err := productRepository.GetProductUserSessionByHash(session); err != nil {
 			response.SendFailureResponse(c, err)
 			return
 		} else if exists {
-			expireTime := session.UpdatedAt.Time().Add(time.Minute * 2).UTC()
+			expireTime := session.UpdatedAt.Add(time.Minute * 2).UTC()
 			if expireTime.Before(utils.GetUTCTime()) {
 				session.ID = primitive.NilObjectID
-				if err = session.Save(); err != nil {
+				if err = productRepository.SaveProductUserSession(session); err != nil {
 					response.SendFailureResponse(c, err)
 					return
 				}
 			}
 		} else {
-			if err = session.Save(); err != nil {
+			if err = productRepository.SaveProductUserSession(session); err != nil {
 				response.SendFailureResponse(c, err)
 				return
 			}
 		}
 	}
-	activity := products_db.ProductActivity{
+	activity := db_types.ProductActivity{
 		From:   params.From,
 		Page:   params.Page,
 		Method: params.Method,
 		Time:   utils.GetCurrentTime(),
 	}
-	err := session.VisitProduct(activity)
+	err := productRepository.VisitProduct(session, activity)
 	websockets.SendLog(product.ID.Hex(), websockets.Visit{
 		Country: location.Country,
 		Referer: session.Referer,

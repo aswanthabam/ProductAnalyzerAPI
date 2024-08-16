@@ -2,7 +2,7 @@ package middlewares
 
 import (
 	"net/http"
-	user_db "productanalyzer/api/db/user"
+	"productanalyzer/api/db"
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
 	response "productanalyzer/api/utils/response"
@@ -70,7 +70,7 @@ func WebsocketAuthMiddleware(requireVerifiedEmail bool) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		user, err := user_db.GetUserByID(userID)
+		user, err := db.UserRepository.GetUserByID(userID)
 		if err != nil {
 			wsConn.SendErrorMesage("User not found")
 			wsConn.Close()

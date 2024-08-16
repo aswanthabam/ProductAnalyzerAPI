@@ -1,7 +1,8 @@
 package auth_route
 
 import (
-	user_db "productanalyzer/api/db/user"
+	"productanalyzer/api/db"
+	db_types "productanalyzer/api/db/types"
 	api_error "productanalyzer/api/errors"
 	mailer "productanalyzer/api/mail"
 	"productanalyzer/api/utils"
@@ -23,18 +24,18 @@ func Register(c *gin.Context) {
 	} else {
 		params.Password = passwordHash
 	}
-	user := user_db.User{
+	user := db.User{
 		Fullname:      params.Fullname,
 		Email:         params.Email,
 		Password:      params.Password,
 		EmailVerified: false,
 	}
-	userId, err := user_db.InsertUser(&user)
+	userId, err := db.UserRepository.CreateUser(&user)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	otp, err := user_db.CreateOTP(userId, user_db.OTP_SCOPE_EMAIL_VERIFICATION)
+	otp, err := db.UserRepository.CreateOTP(userId, db_types.OTP_SCOPE_EMAIL_VERIFICATION)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -62,17 +63,17 @@ func VerifyEmail(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	var params VerifyEmailParams
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	if err := user_db.VerifyOTP(user.ID, params.OTP, user_db.OTP_SCOPE_EMAIL_VERIFICATION); err != nil {
+	if err := db.UserRepository.VerifyOTP(user.ID, params.OTP, db_types.OTP_SCOPE_EMAIL_VERIFICATION); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	err := user_db.SetEmailVerified(user.ID, true)
+	err := db.UserRepository.SetEmailVerified(user.ID, true)
 	if err != nil {
 		response.SendFailureResponse(c, api_error.UnexpectedError(err))
 		return
@@ -87,17 +88,17 @@ func ResendOTP(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	var params ResendOTPParams
 	if err := c.ShouldBind(&params); err != nil {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	if params.Scope == user_db.OTP_SCOPE_EMAIL_VERIFICATION && user.EmailVerified {
+	if params.Scope == db_types.OTP_SCOPE_EMAIL_VERIFICATION && user.EmailVerified {
 		response.SendFailureResponse(c, api_error.NewAPIError("Email already verified", 400, "Email is already verified"))
 		return
 	}
-	otp, err := user_db.CreateOTP(user.ID, params.Scope)
+	otp, err := db.UserRepository.CreateOTP(user.ID, params.Scope)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return
@@ -117,7 +118,7 @@ func Login(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
-	user, err := user_db.GetUserByEmail(params.Email)
+	user, err := db.UserRepository.GetUserByEmail(params.Email)
 	if err != nil {
 		response.SendFailureResponse(c, err)
 		return

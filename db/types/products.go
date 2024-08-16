@@ -1,0 +1,79 @@
+package db_types
+
+import (
+	"time"
+)
+
+const (
+	PRODUCT_ACCESS_KEY_SCOPE_ALL   = "all"
+	PRODUCT_ACCESS_KEY_SCOPE_VISIT = "visit"
+)
+
+type Product[T PrimaryKey] struct {
+	ID          T         `bson:"_id,omitempty"` // primary key
+	Name        string    `bson:"name"`          // name of the product
+	Description string    `bson:"description"`   // description of the product
+	BaseUrl     string    `bson:"base_url"`      // base url of the product, the domain
+	ProductID   string    `bson:"product_id"`    // product id of the product, used for identifying the product when requesting
+	UserID      T         `bson:"user_id"`       // user id of the user who created the product
+	AccessKeys  []T       `bson:"access_keys"`   // access keys created for the product
+	CreatedAt   time.Time `bson:"created_at"`    // time at which the product was created
+	UpdatedAt   time.Time `bson:"updated_at"`    // time at which the product was last updated
+}
+
+type Location[T PrimaryKey] struct {
+	ID       T      `bson:"_id,omitempty"` // primary key
+	Hash     string `bson:"hash"`          // hash of the location, used for identifying the location and finding if the location changed
+	City     string `bson:"city"`          // city of the location
+	Region   string `bson:"region"`        // region of the location
+	Country  string `bson:"country"`       // country of the location
+	ZipCode  string `bson:"zip_code"`      // zip code of the location
+	TimeZone string `bson:"time_zone"`     // time zone of the location
+}
+
+type ProductUserSession[T PrimaryKey] struct {
+	ID         T                 `bson:"_id,omitempty"` // primary key
+	Hash       string            `bson:"hash"`          // hash of the session, used for identifying the session and finding if the session changed
+	ProductID  T                 `bson:"product_id"`    // product id of the product
+	IPAddress  string            `bson:"ip_address"`    // ip address of the user
+	Location   T                 `bson:"location_id"`   // location id of the user
+	Lat        float64           `bson:"lat"`           // latitude of the location
+	Lon        float64           `bson:"lon"`           // longitude of the location
+	UserAgent  string            `bson:"user_agent"`    // user agent of the user
+	Proxy      bool              `bson:"proxy"`         // whether the user is using a proxy
+	Isp        string            `bson:"isp"`           // internet service provider of the user
+	Device     string            `bson:"device"`        // device type of the user, mobile, tablet, desktop
+	Os         string            `bson:"os"`            // operating system of the user
+	Browser    string            `bson:"browser"`       // browser of the user
+	Bot        bool              `bson:"bot"`           // whether the user is a bot
+	Referer    string            `bson:"referer"`       // refferer of the user
+	Activities []ProductActivity `bson:"activities"`    // activities of the user
+	CreatedAt  time.Time         `bson:"created_at"`    // time at which the session was created
+	UpdatedAt  time.Time         `bson:"updated_at"`    // time at which the session was last updated
+}
+
+type ProductAccessKey[T PrimaryKey] struct {
+	ID        T         `bson:"_id,omitempty"` // primary key
+	ProductID T         `bson:"product_id"`    // product id of the product
+	AccessKey string    `bson:"access_key"`    // access key of the product
+	Scope     string    `bson:"scope"`         // scope of the access key
+	CreatedAt time.Time `bson:"created_at"`    // time at which the access key was created
+}
+
+/* INDIRECT TYPES */
+
+type ProductActivity struct {
+	From   string    `json:"from"`   // from where the user accessed the page
+	Page   string    `json:"page"`   // page the user accessed
+	Method string    `json:"method"` // method used to access the page, GET, POST, etc
+	Time   time.Time `json:"time"`   // time at which the user accessed the page
+}
+
+/* REQUEST TYPES */
+
+type VisitLogEntry struct {
+	CreatedAt     time.Time `bson:"created_at"`     // time at which the visit log was created
+	UpdatedAt     time.Time `bson:"updated_at"`     // time at which the visit log was last updated
+	ActivityCount int       `bson:"activity_count"` // activities of the user
+	Referer       string    `bson:"referer"`        // refferer of the user
+}

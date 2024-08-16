@@ -1,7 +1,7 @@
 package profile_route
 
 import (
-	user_db "productanalyzer/api/db/user"
+	"productanalyzer/api/db"
 	api_error "productanalyzer/api/errors"
 	response "productanalyzer/api/utils/response"
 
@@ -14,7 +14,7 @@ func GetUserInfo(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
 		return
 	}
-	user := usr.(*user_db.User)
+	user := usr.(*db.User)
 	response.SendSuccessResponse(c, "User information fetched successfully", UserInfoResponse{
 		Fullname:      user.Fullname,
 		EmailVerified: user.EmailVerified,
