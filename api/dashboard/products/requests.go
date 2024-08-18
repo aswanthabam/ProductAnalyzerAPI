@@ -10,33 +10,33 @@ const (
 )
 
 type CreateProductRequest struct {
-	Name        string `form:"name" binding:"required,min=3,max=50"`
-	Description string `form:"description" binding:"required,min=3,max=100"`
-	BaseUrl     string `form:"base_url" binding:"required,url"`
-	ProductID   string `form:"product_id" binding:"required,min=3,max=50"`
+	Name        string `form:"name" binding:"required,min=3,max=50" json:"name"`
+	Description string `form:"description" binding:"required,min=3,max=100" json:"description"`
+	BaseUrl     string `form:"base_url" binding:"required,url" json:"base_url"`
+	ProductID   string `form:"product_id" binding:"required,min=3,max=50" json:"product_id"`
 }
 
 type CreateAccessKeyRequest struct {
-	ProductID string `form:"product_id" binding:"required"`
-	Scope     string `form:"scope" binding:"required"`
+	ProductID string `form:"product_id" binding:"required" json:"product_id"`
+	Scope     string `form:"scope" binding:"required" json:"scope"`
 }
 
 type ProductInfoRequest struct {
-	ProductID string `form:"product_id" binding:"required"`
+	ProductID string `form:"product_id" binding:"required" json:"product_id"`
 }
 
 type ProductAccessKeysRequest struct {
-	ProductID string `form:"product_id" binding:"required"`
+	ProductID string `form:"product_id" binding:"required" json:"product_id"`
 }
 
 type DeleteProductRequest struct {
-	InstanceId string `form:"instance_id" binding:"required"`
-	Type       string `form:"type" binding:"required"`
+	InstanceId string `form:"instance_id" binding:"required" json:"instance_id"`
+	Type       string `form:"type" binding:"required" json:"type"`
 }
 
 type VisitLogRequest struct {
-	ProductID string    `form:"product_id" binding:"required"`
-	FromDate  time.Time `form:"from_date" binding:"required" time_format:"2006-01-02 15:04:05"`
-	ToDate    time.Time `form:"to_date" time_format:"2006-01-02 15:04:05" default:"now"`
-	Unit      string    `form:"unit" binding:"required"`
+	ProductID string    `form:"product_id" binding:"required" json:"product_id"`
+	FromDate  time.Time `form:"from_date" binding:"required" time_format:"2006-01-02 15:04:05" json:"from_date"`
+	ToDate    time.Time `form:"to_date" time_format:"2006-01-02 15:04:05" default:"now" json:"to_date"`
+	Unit      string    `form:"unit" binding:"required" json:"unit"`
 }

@@ -14,6 +14,7 @@ func SetupRoutes(router *gin.RouterGroup) {
 		protectedProductsRoute.Use(middlewares.AuthMiddleware(true))
 		{
 			protectedProductsRoute.POST("/create", products_route.CreateProduct)
+			protectedProductsRoute.GET("/list", products_route.ListProducts)
 			protectedProductsRoute.POST("/create-access-key", products_route.CreateAccessKey)
 			protectedProductsRoute.GET("/info", products_route.ProductInfo)
 			protectedProductsRoute.GET("/access-keys", products_route.ProductAccessKeys)

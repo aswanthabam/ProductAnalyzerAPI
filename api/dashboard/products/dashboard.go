@@ -107,6 +107,7 @@ func ProductInfo(c *gin.Context) {
 	}, nil)
 }
 
+// Product Access Keys Request [GET]
 func ProductAccessKeys(c *gin.Context) {
 	usr, exists := c.Get("user")
 	if !exists {
@@ -263,6 +264,7 @@ func VisitLog(c *gin.Context) {
 	}, nil)
 }
 
+// Websocket for log connection [GET]
 func HandleLogWebsocket(c *gin.Context) {
 	conn, exists := c.Get("websocket")
 	if !exists {
@@ -290,4 +292,30 @@ func HandleLogWebsocket(c *gin.Context) {
 		return
 	}
 	ws.SendData(gin.H{"message": "Connection established"})
+}
+
+// List all products [GET]
+func ListProducts(c *gin.Context) {
+	usr, exists := c.Get("user")
+	if !exists {
+		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
+		return
+	}
+	user := usr.(*db.User)
+	products, err := db.ProductRepository.GetProductsByUserID(user.ID)
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	productsResponse := []ProductInfoResponse{}
+	for _, product := range *products {
+		productsResponse = append(productsResponse, ProductInfoResponse{
+			ID:          product.ID.Hex(),
+			Name:        product.Name,
+			Description: product.Description,
+			BaseUrl:     product.BaseUrl,
+			ProductID:   product.ProductID,
+		})
+	}
+	response.SendSuccessResponse(c, "Products", productsResponse, nil)
 }
