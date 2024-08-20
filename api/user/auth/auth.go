@@ -157,6 +157,7 @@ func Login(c *gin.Context) {
 	response.SendSuccessResponse(c, message, tokenData, nil)
 }
 
+// Get Access Token Endpoint [POST]
 func GetAccessToken(c *gin.Context) {
 	var params GetAccessTokenParams
 	if err := c.ShouldBind(&params); err != nil {
@@ -200,6 +201,7 @@ func GetAccessToken(c *gin.Context) {
 	response.SendSuccessResponse(c, "Access Token generated successfully", tokenData, nil)
 }
 
+// Logout User Endpoint [POST]
 func Logout(c *gin.Context) {
 	usr, exists := c.Get("user")
 	if !exists {
@@ -225,7 +227,6 @@ func Logout(c *gin.Context) {
 		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Token", 400, "Invalid refresh token"))
 		return
 	}
-
 	if params.All {
 		db.UserRepository.RemoveAllRefreshTokens(user.ID)
 		response.SendSuccessResponse(c, "Logged out successfully", nil, nil)
