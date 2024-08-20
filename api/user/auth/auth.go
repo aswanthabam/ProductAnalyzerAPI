@@ -9,6 +9,7 @@ import (
 	response "productanalyzer/api/utils/response"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Register User Endpoint [POST]
@@ -45,8 +46,15 @@ func Register(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
+	refreshToken, err := db.UserRepository.CreateRefreshToken(userId)
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	db.UserRepository.RemoveOldTokens(user.ID)
 	tokenData := TokenData{
-		AccessToken: token,
+		AccessToken:  token,
+		RefreshToken: refreshToken,
 	}
 	err = mailer.SendHTMLEmail(params.Email, "Email Verification", "Your OTP is "+otp)
 	if err != nil {
@@ -136,8 +144,58 @@ func Login(c *gin.Context) {
 		response.SendFailureResponse(c, err)
 		return
 	}
+	refreshToken, err := db.UserRepository.CreateRefreshToken(user.ID)
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	db.UserRepository.RemoveOldTokens(user.ID)
 	tokenData := TokenData{
-		AccessToken: token,
+		AccessToken:  token,
+		RefreshToken: refreshToken,
 	}
 	response.SendSuccessResponse(c, message, tokenData, nil)
+}
+
+func GetAccessToken(c *gin.Context) {
+	var params GetAccessTokenParams
+	if err := c.ShouldBind(&params); err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	claims, tokenParseError := utils.ValidateToken(params.RefreshToken)
+	if claims != nil {
+		userObjectId, err := primitive.ObjectIDFromHex(claims.UserID)
+		if err != nil {
+			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Token", 400, "Invalid User ID"))
+			return
+		}
+		valid := db.UserRepository.IsValidRefreshToken(userObjectId, params.RefreshToken)
+		if !valid {
+			response.SendFailureResponse(c, api_error.NewAPIError("Invalid Token", 400, "Invalid refresh token"))
+			return
+		}
+		if tokenParseError != nil {
+			db.UserRepository.RemoveRefreshToken(userObjectId, params.RefreshToken)
+			response.SendFailureResponse(c, tokenParseError)
+			return
+		}
+	} else {
+		response.SendFailureResponse(c, tokenParseError)
+		return
+	}
+	if claims.TokenType != "refresh" {
+		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Token", 400, "Invalid token"))
+		return
+	}
+	token, err := utils.CreateToken(claims.UserID)
+	if err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	tokenData := TokenData{
+		AccessToken:  token,
+		RefreshToken: params.RefreshToken,
+	}
+	response.SendSuccessResponse(c, "Access Token generated successfully", tokenData, nil)
 }

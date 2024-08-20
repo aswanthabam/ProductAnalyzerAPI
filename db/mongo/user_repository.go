@@ -2,6 +2,7 @@ package db_mongo
 
 import (
 	"context"
+	"log"
 	db_types "productanalyzer/api/db/types"
 	api_error "productanalyzer/api/errors"
 	"productanalyzer/api/utils"
@@ -117,6 +118,64 @@ func (m *MongoUserRepository) SetEmailVerified(userId primitive.ObjectID, verifi
 	_, err := m.Connection.User.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$set": bson.M{"email_verified": verified}})
 	if err != nil {
 		return api_error.UnexpectedError(err)
+	}
+	return nil
+}
+
+// Creates a new refresh token for the user
+func (m *MongoUserRepository) CreateRefreshToken(userId primitive.ObjectID) (string, *api_error.APIError) {
+	token, err := utils.CreateRefreshToken(userId.Hex())
+	if err != nil {
+		return "", api_error.UnexpectedError(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err2 := m.Connection.User.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$push": bson.M{"refresh_tokens": token}})
+	if err2 != nil {
+		return "", api_error.UnexpectedError(err)
+	}
+	return token, nil
+}
+
+// Removes the refresh token from the database
+func (m *MongoUserRepository) RemoveRefreshToken(userId primitive.ObjectID, token string) *api_error.APIError {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := m.Connection.User.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$pull": bson.M{"refresh_tokens": token}})
+	if err != nil {
+		return api_error.UnexpectedError(err)
+	}
+	return nil
+}
+
+// Checks if the refresh token is valid
+func (m *MongoUserRepository) IsValidRefreshToken(userId primitive.ObjectID, token string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	user := MongoUser{}
+	err := m.Connection.User.FindOne(ctx, bson.M{"_id": userId, "refresh_tokens": bson.M{
+		"$in": []string{token},
+	}}).Decode(&user)
+	return err == nil
+}
+
+// Removes all the old refresh tokens from the database
+func (m *MongoUserRepository) RemoveOldTokens(userId primitive.ObjectID) *api_error.APIError {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var result map[string]interface{}
+	err2 := m.Connection.User.FindOne(ctx, bson.M{"_id": userId}, options.FindOne().SetProjection(bson.M{"refresh_tokens": 1})).Decode(&result)
+	if err2 != nil {
+		return api_error.UnexpectedError(err2)
+	}
+	if refreshTokens, ok := result["refresh_tokens"].(primitive.A); ok {
+		log.Println(len(refreshTokens))
+		if len(refreshTokens) > db_types.MAX_USER_SESSIONS {
+			_, err2 = m.Connection.User.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$pop": bson.M{"refresh_tokens": -1}})
+			if err2 != nil {
+				return api_error.UnexpectedError(err2)
+			}
+		}
 	}
 	return nil
 }

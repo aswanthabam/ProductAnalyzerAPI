@@ -1,0 +1,7 @@
+package repsonse
+
+const (
+	ERROR_DEFAULT               = 1000
+	ERROR_ACCESS_TOKEN_EXPIRED  = 1001
+	ERROR_REFRESH_TOKEN_EXPIRED = 1002
+)

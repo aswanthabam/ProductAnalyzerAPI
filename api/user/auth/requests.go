@@ -18,3 +18,7 @@ type LoginParams struct {
 	Email    string `form:"email" binding:"required,email" json:"email"`
 	Password string `form:"password" binding:"required" json:"password"`
 }
+
+type GetAccessTokenParams struct {
+	RefreshToken string `form:"refresh_token" binding:"required" json:"refresh_token"`
+}

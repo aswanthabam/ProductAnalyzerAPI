@@ -27,7 +27,8 @@ const (
 )
 
 type Claims struct {
-	UserID string `json:"user_id"`
+	UserID    string `json:"user_id"`
+	TokenType string `json:"token_type"`
 	jwt.RegisteredClaims
 }
 
@@ -56,21 +57,37 @@ func FormatValidationErrors(err error) interface{} {
 	return errorMap
 }
 
-func CreateToken(userID string) (string, *api_error.APIError) {
-	expirationTime := time.Now().UTC().Add(24 * time.Hour)
+func CreateRefreshToken(userId string) (string, *api_error.APIError) {
+	expirationTime := time.Now().UTC().Add(90 * 24 * time.Hour) // 90 days
 	claims := &Claims{
-		UserID: userID,
+		UserID:    userId,
+		TokenType: "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
-
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	sign, err := token.SignedString([]byte(config.Config.SECRET_KEY))
+	accessToken, err := token.SignedString([]byte(config.Config.SECRET_KEY))
 	if err != nil {
 		return "", api_error.UnexpectedError(err)
 	}
-	return sign, nil
+	return accessToken, nil
+}
+func CreateToken(userID string) (string, *api_error.APIError) {
+	expirationTime := time.Now().UTC().Add(12 * time.Second) // 12 hours
+	claims := &Claims{
+		UserID:    userID,
+		TokenType: "access",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	accessToken, err := token.SignedString([]byte(config.Config.SECRET_KEY))
+	if err != nil {
+		return "", api_error.UnexpectedError(err)
+	}
+	return accessToken, nil
 }
 
 func ValidateToken(tokenString string) (*Claims, *api_error.APIError) {
@@ -78,11 +95,9 @@ func ValidateToken(tokenString string) (*Claims, *api_error.APIError) {
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.Config.SECRET_KEY), nil
 	})
-
 	if err != nil {
-		return nil, api_error.UnexpectedError(err)
+		return claims, api_error.NewAPIError("Login Failed!", http.StatusUnauthorized, "Invalid or expired token")
 	}
-
 	if !token.Valid {
 		return nil, api_error.NewAPIError("Login Failed!", http.StatusUnauthorized, "Invalid or expired token")
 	}

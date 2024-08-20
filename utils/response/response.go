@@ -14,13 +14,19 @@ type CustomResponse struct {
 	Data    interface{} `json:"data"`
 }
 
-func SendFailureResponse(cn *gin.Context, err error) {
+func SendFailureResponse(cn *gin.Context, err error, code ...int) {
 	var statusCode int
+	var errorCode int
 	var message string
 	if err == nil {
 		err = api_error.UnexpectedError(nil)
 	}
 	var data interface{}
+	if len(code) > 0 {
+		errorCode = code[0]
+	} else {
+		errorCode = ERROR_DEFAULT
+	}
 	switch err := err.(type) {
 	case *api_error.APIError:
 		data = gin.H{"message": err.Message}
@@ -37,6 +43,7 @@ func SendFailureResponse(cn *gin.Context, err error) {
 	}
 	cn.JSON(statusCode, gin.H{
 		"status":  "failed",
+		"code":    errorCode,
 		"message": message,
 		"data":    data,
 	})

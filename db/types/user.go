@@ -6,12 +6,17 @@ const (
 	OTP_SCOPE_EMAIL_VERIFICATION = "email_verification"
 )
 
+const (
+	MAX_USER_SESSIONS = 5
+)
+
 type User[T PrimaryKey] struct {
 	ID            T         `bson:"_id,omitempty"`  // primary key
 	Fullname      string    `bson:"fullname"`       // fullname of the user
 	Email         string    `bson:"email"`          // email of the user
 	EmailVerified bool      `bson:"email_verified"` // email verification status of the user
 	Password      string    `bson:"password"`       // password of the user
+	RefreshTokens []string  `bson:"refresh_tokens"` // refresh tokens of the user
 	CreatedAt     time.Time `bson:"created_at"`     // time at which the user was created
 }
 

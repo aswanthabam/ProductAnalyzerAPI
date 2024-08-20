@@ -35,7 +35,7 @@ func AuthMiddleware(requireVerifiedEmail bool) gin.HandlerFunc {
 
 		claims, err := utils.ValidateToken(bearerToken[1])
 		if err != nil {
-			response.SendFailureResponse(c, err)
+			response.SendFailureResponse(c, err, response.ERROR_ACCESS_TOKEN_EXPIRED)
 			c.Abort()
 			return
 		}
