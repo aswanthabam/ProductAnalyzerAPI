@@ -148,6 +148,17 @@ func (m *MongoUserRepository) RemoveRefreshToken(userId primitive.ObjectID, toke
 	return nil
 }
 
+// Removes all the refresh tokens from the database
+func (m *MongoUserRepository) RemoveAllRefreshTokens(userId primitive.ObjectID) *api_error.APIError {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := m.Connection.User.UpdateOne(ctx, bson.M{"_id": userId}, bson.M{"$set": bson.M{"refresh_tokens": []string{}}})
+	if err != nil {
+		return api_error.UnexpectedError(err)
+	}
+	return nil
+}
+
 // Checks if the refresh token is valid
 func (m *MongoUserRepository) IsValidRefreshToken(userId primitive.ObjectID, token string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

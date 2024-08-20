@@ -22,3 +22,8 @@ type LoginParams struct {
 type GetAccessTokenParams struct {
 	RefreshToken string `form:"refresh_token" binding:"required" json:"refresh_token"`
 }
+
+type LogoutParams struct {
+	RefreshToken string `form:"refresh_token" binding:"required" json:"refresh_token"`
+	All          bool   `form:"all" json:"all" default:"false"`
+}

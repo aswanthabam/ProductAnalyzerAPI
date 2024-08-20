@@ -21,6 +21,7 @@ func SetupRoutes(router *gin.RouterGroup) {
 		authRoute.POST("/login", auth_route.Login)
 		authRoute.POST("/get-access-token", auth_route.GetAccessToken)
 
+		protectedAuthRoute.POST("/logout", auth_route.Logout)
 		protectedAuthRoute.POST("/verify-email", auth_route.VerifyEmail)
 		protectedAuthRoute.POST("/resend-otp", auth_route.ResendOTP)
 	}

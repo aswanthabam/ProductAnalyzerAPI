@@ -74,7 +74,7 @@ func CreateRefreshToken(userId string) (string, *api_error.APIError) {
 	return accessToken, nil
 }
 func CreateToken(userID string) (string, *api_error.APIError) {
-	expirationTime := time.Now().UTC().Add(12 * time.Second) // 12 hours
+	expirationTime := time.Now().UTC().Add(10 * time.Minute) // 10 Minute
 	claims := &Claims{
 		UserID:    userID,
 		TokenType: "access",

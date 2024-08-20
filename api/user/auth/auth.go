@@ -199,3 +199,41 @@ func GetAccessToken(c *gin.Context) {
 	}
 	response.SendSuccessResponse(c, "Access Token generated successfully", tokenData, nil)
 }
+
+func Logout(c *gin.Context) {
+	usr, exists := c.Get("user")
+	if !exists {
+		response.SendFailureResponse(c, api_error.UnexpectedError(nil))
+		return
+	}
+	user := usr.(*db.User)
+	var params LogoutParams
+	if err := c.ShouldBind(&params); err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	if params.RefreshToken == "" {
+		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Request", 400, "Refresh token is required"))
+		return
+	}
+	claims, err := utils.ValidateToken(params.RefreshToken)
+	if err != nil || claims == nil || claims.UserID != user.ID.Hex() || claims.TokenType != "refresh" {
+		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Token", 400, "Invalid refresh token"))
+		return
+	}
+	if !db.UserRepository.IsValidRefreshToken(user.ID, params.RefreshToken) {
+		response.SendFailureResponse(c, api_error.NewAPIError("Invalid Token", 400, "Invalid refresh token"))
+		return
+	}
+
+	if params.All {
+		db.UserRepository.RemoveAllRefreshTokens(user.ID)
+		response.SendSuccessResponse(c, "Logged out successfully", nil, nil)
+		return
+	}
+	if err := db.UserRepository.RemoveRefreshToken(user.ID, params.RefreshToken); err != nil {
+		response.SendFailureResponse(c, err)
+		return
+	}
+	response.SendSuccessResponse(c, "Logged out successfully", nil, nil)
+}
