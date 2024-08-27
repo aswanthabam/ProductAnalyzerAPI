@@ -11,6 +11,7 @@ Product analyzer aims to build a simple and user friendly alternative to google 
 - Analyze website traffic data
 - User friendly interface
 - Fast and easy to use
+- Interact with user live.
 
 ---
 
