@@ -12,6 +12,7 @@ Product analyzer aims to build a simple and user friendly alternative to google 
 - User friendly interface
 - Fast and easy to use
 - Interact with user live.
+- Tracks all acctivities of user (like watching a video etc.)
 
 ---
 
